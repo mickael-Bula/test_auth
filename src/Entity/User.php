@@ -3,6 +3,8 @@
 namespace App\Entity;
 
 use App\Repository\UserRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -31,6 +33,23 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      */
     #[ORM\Column]
     private ?string $password = null;
+
+    #[ORM\ManyToOne(inversedBy: 'users')]
+    private ?Cac $lastCacUpdated = null;
+
+    #[ORM\ManyToOne(inversedBy: 'users')]
+    private ?LastHigh $higher = null;
+
+    /**
+     * @var Collection<int, Position>
+     */
+    #[ORM\OneToMany(targetEntity: Position::class, mappedBy: 'userPosition')]
+    private Collection $positions;
+
+    public function __construct()
+    {
+        $this->positions = new ArrayCollection();
+    }
 
     public function getId(): ?int
     {
@@ -105,5 +124,57 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         // If you store any temporary, sensitive data on the user, clear it here
         // $this->plainPassword = null;
+    }
+
+    public function getLastCacUpdated(): ?Cac
+    {
+        return $this->lastCacUpdated;
+    }
+
+    public function setLastCacUpdated(?Cac $lastCacUpdated): static
+    {
+        $this->lastCacUpdated = $lastCacUpdated;
+
+        return $this;
+    }
+
+    public function getHigher(): ?LastHigh
+    {
+        return $this->higher;
+    }
+
+    public function setHigher(?LastHigh $higher): static
+    {
+        $this->higher = $higher;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Position>
+     */
+    public function getPositions(): Collection
+    {
+        return $this->positions;
+    }
+
+    public function addPosition(Position $position): static
+    {
+        if (!$this->positions->contains($position)) {
+            $this->positions->add($position);
+            $position->setUserPosition($this);
+        }
+
+        return $this;
+    }
+
+    public function removePosition(Position $position): static
+    {
+        // set the owning side to null (unless already changed)
+        if ($this->positions->removeElement($position) && $position->getUserPosition() === $this) {
+            $position->setUserPosition(null);
+        }
+
+        return $this;
     }
 }

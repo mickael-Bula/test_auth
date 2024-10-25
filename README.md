@@ -104,3 +104,60 @@ En réponse, on reçoit le token, qu'il faudra alors enregistrer et fournir dans
 > il doit être fourni dans le header Authorization avec comme valeur Bearer <token>,
 > sans guillemets entre Bearer et le token.
 
+## Configuration des CORS pour autoriser mon front Vue.js
+Pour faciliter la gestion des CORS, j'installe nelmio :
+
+```bash
+$ composer require nelmio/cors-bundle
+```
+
+Ensuite, je configure le fichier config/packages/nelmio_cors.yaml :
+
+```yaml
+# config/packages/nelmio_cors.yaml
+nelmio_cors:
+    defaults:
+        allow_origin: ['%env(CORS_ALLOW_ORIGIN)%']
+        allow_headers: ['Content-Type', 'Authorization']
+        allow_methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE']
+        max_age: 3600
+    paths:
+        '^/api/':
+            allow_origin: ['%env(CORS_ALLOW_ORIGIN)%']
+            allow_headers: ['Content-Type', 'Authorization']
+            allow_methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE']
+            max_age: 3600
+```
+
+## Transmettre les Positions au front
+
+Il faut convertir les positions du format objet PHP vers JSON au moyen du serializer de Symfony :
+
+``
+$ composer require symfony/serializer
+``
+
+Pour intégrer les relations, tout en évitant les problèmes de circularité,
+je déclare des groupes dans les entités concernées avec l'attribut suivant :
+
+```php
+#[Groups(["position_read"])]
+```
+
+⚠ Le groupe doit être assigné aux propriétés dans les classes liées.
+Par exemple, la propriété `buyLimit` de l'entité **LasHigh** depuis la propriété `LastHigh` de l'entité **Position**)
+
+Côté front, pour afficher la propriété buyLimit de l'entité LastHigh contenu dans l'objet JSON position,
+il faut faire :
+
+```js
+{{ position.buyLimit.buyLimit }} // la valeur de la seconde buyLimit est celle de la clé buyLimit du tableau position
+```
+
+## Formulaire Register
+
+```bash
+$ composer require form validator
+$ php bin/console make:controller Registration
+```
+
