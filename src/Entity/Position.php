@@ -8,6 +8,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Attribute\Groups;
 
 #[ORM\Entity(repositoryClass: PositionRepository::class)]
+#[ORM\HasLifecycleCallbacks()]
 class Position
 {
     /**
@@ -101,6 +102,18 @@ class Position
         $this->sellTarget = $sellTarget;
 
         return $this;
+    }
+
+    /**
+     * Méthode appelée avant chaque Event persist et update de l'entité Position pour fixer la cible de revente à +10%.
+     */
+    #[ORM\PrePersist]
+    #[ORM\PostPersist]
+    public function SellTargetEvent(): void
+    {
+        if ($this->buyTarget) {
+            $this->setSellTarget($this->buyTarget * 1.1);
+        }
     }
 
     public function getBuyDate(): ?\DateTimeInterface

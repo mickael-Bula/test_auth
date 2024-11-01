@@ -11,3 +11,6 @@ api_register:
     path: /api/register
     controller: App\Controller\RegistrationController::register
     methods: POST
+
+api_refresh_token:
+    path: /api/token/refresh
