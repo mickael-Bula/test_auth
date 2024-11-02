@@ -131,7 +131,7 @@ class ApiController extends AbstractController
 
     public function setNewUserLastLvcHigher(LastHigh $lastHighEntity, ?Cac $cac): LastHigh
     {
-        // à partir de l'entity Cac, je récupère l'objet LVC contemporain
+        // à partir de l'entité Cac, je récupère l'objet LVC contemporain
         $lvcRepository = $this->entityManager->getRepository(Lvc::class);
         $lvc = $lvcRepository->findOneBy(["createdAt" => $cac?->getCreatedAt()]);
         if (!$lvc) {

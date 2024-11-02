@@ -137,9 +137,9 @@ class PositionHandler
         // je mets à jour les positions en attente de l'utilisateur liées au lastHigh (via la buyLimit).
         $positions = $positionsRepository->findBy(
             [
-                "User" => $this->getCurrentUser(),
-                "isWaiting" => true,
-                "buyLimit" => $lastHigh->getId()
+                'userPosition' => $this->getCurrentUser(),
+                'isWaiting' => true,
+                'buyLimit' => $newLastHigh->getId()
             ]
         );
         $this->setPositions($newLastHigh, $positions);
@@ -152,7 +152,7 @@ class PositionHandler
      * @param LastHigh|null $lastHigh
      * @return LastHigh
      */
-    public function setBuyLimitToNewLastHigh(Cac $cac, ?LastHigh $lastHigh): LastHigh
+    public function setBuyLimitToNewLastHigh(Cac $cac, LastHigh $lastHigh = null): LastHigh
     {
         $lastHighRepository = $this->entityManager->getRepository(LastHigh::class);
 
@@ -219,7 +219,7 @@ class PositionHandler
         ];
 
         // Je boucle sur les positions existantes, sinon j'en crée 3 nouvelles.
-        foreach (range(0, 3) as $i) {
+        foreach (range(0, 2) as $i) {
             $position = $nbPositions === 0 ? new Position() : $positions[$i];
             $position->setBuyLimit($lastHigh);
             $buyLimit = $lastHigh->getBuyLimit();
@@ -227,8 +227,8 @@ class PositionHandler
             // Positions prises à 0, -2 et -4 %.
             $positionDeltaCac = $buyLimit - ($buyLimit * $delta['cac'][$i] / 100);
             $position->setBuyTarget(round($positionDeltaCac, 2));
-            $position->setIsWaiting(true);
-            $position->setUser($user);
+            $position->setWaiting(true);
+            $position->setUserPosition($user);
             $lvcBuyLimit = $lastHigh->getLvcBuyLimit();
 
             // Positions prises à 0, -4 et -8 %.
@@ -321,7 +321,7 @@ class PositionHandler
         return $this->entityManager->getRepository(Position::class)
             ->findBy(
                 [
-                    "User" => $this->getCurrentUser()->getId(),
+                    'userPosition' => $this->getCurrentUser()->getId(),
                     $status => true,
                 ]
             );
