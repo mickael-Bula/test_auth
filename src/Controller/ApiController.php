@@ -99,14 +99,11 @@ class ApiController extends AbstractController
 
         $lastHighEntity = $this->setNewUserLastLvcHigher($lastHighEntity, $cac);
 
-        /* Je persiste les données et je les insère en base.
-        Je le fais avant transmission à l'utilisateur, afin qu'un id soit créé */
+        // Je persiste les données pour créer l'id du lashHigh avant de l'assigner à l'utilisateur.
         $lastHighRepository->add($lastHighEntity, true);
-
-        // J'assigne ce plus haut à l'utilisateur courant et j'enregistre à nouveau en base
         $user->setHigher($lastHighEntity);
 
-        // On trace la dernière cotation utilisée pour le calcul des données de trading de l'utilisateur
+        // On trace la dernière cotation utilisée pour le calcul des données de trading de l'utilisateur.
         $user->setLastCacUpdated($cac);
 
         $this->entityManager->flush();

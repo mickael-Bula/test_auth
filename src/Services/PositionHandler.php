@@ -51,10 +51,13 @@ class PositionHandler
 
         foreach ($cacData as $cac) {
             $this->checkLastHigh($cac);
-            // Récupération du lvc contemporain au cac.
+
+            // Mise à jour de la date représentant la dernière visite de l'utilisateur.
+            $this->updateLastCac($cac);
+
+            // Récupération du lvc contemporain au cac pour mise à jour des positions.
             $lvcData = $lvcRepository->findOneBy(["createdAt" => $cac->getCreatedAt()]);
             if ($lvcData) {
-                // Mise à jour des positions...
                 $this->checkLvcData($lvcData);
             } else {
                 $date = $cac->getCreatedAt() !== null ? $cac->getCreatedAt()->format("D/M/Y") : null;
@@ -62,8 +65,6 @@ class PositionHandler
                     sprintf("Pas de correspondance LVC pour le CAC fournit en date du %s", $date)
                 );
             }
-            // ...puis de la date de la dernière visite de l'utilisateur.
-            $this->updateLastCac($cac);
         }
     }
 

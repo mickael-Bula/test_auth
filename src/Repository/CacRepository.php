@@ -26,7 +26,7 @@ class CacRepository extends ServiceEntityRepository
         $results = $this->createQueryBuilder('c')
             ->select('c.createdAt', 'c.closing', 'c.opening', 'c.higher', 'c.lower', 'l.closing AS lvcClosing')
             ->join(Lvc::class, 'l', 'WITH', 'c.createdAt = l.createdAt')
-            ->orderBy('c.createdAt', 'desc')
+            ->orderBy('c.createdAt', 'DESC')
             ->getQuery()
             ->getResult();
 
@@ -46,6 +46,7 @@ class CacRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('cac')
             ->where('cac.createdAt > :date')
             ->setParameter('date', $lastCacUpdated->getCreatedAt())
+            ->orderBy('cac.createdAt', 'ASC')
             ->getQuery()
             ->getResult();
     }
