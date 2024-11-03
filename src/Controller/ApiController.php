@@ -66,13 +66,15 @@ class ApiController extends AbstractController
         // On retourne les données de trading de l'utilisateur
         $lastHigh = $user->getHigher();
         $lastHigher = $lastHigh?->getHigher();
-        $buyLimit = $lastHigh?->getBuyLimit();
+        $dateOfLastHigher = $lastHigh?->getDailyCac()?->getCreatedAt()?->format('Y-m-d\TH:i:s\Z');
         $positionRepository = $this->entityManager->getRepository(Position::class);
+        $buyLimit = $lastHigh?->getBuyLimit();
         [$waitingPositions, $runningPositions, $closedPositions] = $positionRepository->getUserPositions($user->getId());
 
         return $this->json(
             [
                 'lastHigher' => $lastHigher,
+                'dateOfLastHigher' => $dateOfLastHigher,
                 'buyLimit' => $buyLimit,
                 'waitingPositions' => $waitingPositions,
                 'runningPositions' => $runningPositions,
