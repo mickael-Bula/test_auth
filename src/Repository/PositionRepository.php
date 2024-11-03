@@ -29,4 +29,19 @@ class PositionRepository extends ServiceEntityRepository
 
         return $result;
     }
+
+    /**
+     * Récupère les positions en attente qui ont une buyLimit différente de celle de la position courante
+     */
+    public function getIsWaitingPositionsByBuyLimitID(Position $position): ?array
+    {
+        return $this
+            ->createQueryBuilder('p')
+            ->where('p.isWaiting = true')
+            ->andWhere('p.buyLimit <> :buyLimit')
+            ->setParameter('buyLimit', $position->getBuyLimit())
+            ->orderBy('p.buyLimit', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }

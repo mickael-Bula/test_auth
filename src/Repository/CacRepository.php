@@ -18,17 +18,15 @@ class CacRepository extends ServiceEntityRepository
     }
 
     /**
-     * Retourne toutes les cotations du Cac, ainsi que le cours de clôture du Lvc
-     * L'affichage présente les données les plus récentes
-     *
-     * @return mixed
+     * Retourne toutes les cotations du Cac, ainsi que le cours de clôture du Lvc.
+     * L'affichage présente les données les plus récentes.
      */
     public function getCacAndLvcData(): mixed
     {
         $results = $this->createQueryBuilder('c')
             ->select('c.createdAt', 'c.closing', 'c.opening', 'c.higher', 'c.lower', 'l.closing AS lvcClosing')
             ->join(Lvc::class, 'l', 'WITH', 'c.createdAt = l.createdAt')
-            ->orderBy('c.createdAt', 'desc')
+            ->orderBy('c.createdAt', 'DESC')
             ->getQuery()
             ->getResult();
 
@@ -38,5 +36,18 @@ class CacRepository extends ServiceEntityRepository
         }
 
         return $results;
+    }
+
+    /**
+     * Récupère toutes les entités cac qui ont une date supérieure à celle de $lastCacUpdated, triées par ancienneté.
+     */
+    public function getDataToUpdateFromUser(Cac $lastCacUpdated): array
+    {
+        return $this->createQueryBuilder('cac')
+            ->where('cac.createdAt > :date')
+            ->setParameter('date', $lastCacUpdated->getCreatedAt())
+            ->orderBy('cac.createdAt', 'ASC')
+            ->getQuery()
+            ->getResult();
     }
 }

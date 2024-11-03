@@ -8,6 +8,7 @@ use App\Entity\User;
 use App\Entity\Position;
 use App\Entity\LastHigh;
 use Psr\Log\LoggerInterface;
+use App\Services\PositionHandler;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -17,10 +18,15 @@ class ApiController extends AbstractController
 {
     private EntityManagerInterface $entityManager;
     private LoggerInterface $logger;
+    private PositionHandler $positionHandler;
 
-    public function __construct(EntityManagerInterface $entityManager, LoggerInterface $myAppLogger)
+    public function __construct(
+        EntityManagerInterface $entityManager,
+        PositionHandler        $positionHandler,
+        LoggerInterface        $myAppLogger)
     {
         $this->entityManager = $entityManager;
+        $this->positionHandler = $positionHandler;
         $this->logger = $myAppLogger;
     }
 
@@ -38,7 +44,7 @@ class ApiController extends AbstractController
     }
 
     /**
-     * Retourne le plus haut et la milite d'achat de l'utilisateur courant.
+     * Retourne le plus haut et la limite d'achat de l'utilisateur courant.
      *
      * @return JsonResponse
      */
@@ -53,16 +59,22 @@ class ApiController extends AbstractController
             $this->setHigherToNewRegisteredUser();
         }
 
+        // Mise à jour des journées de cotation manquantes depuis la dernière visite de l'utilisateur.
+        $cacList = $this->positionHandler->dataToCheck();
+        $this->positionHandler->updateCacData($cacList);
+
         // On retourne les données de trading de l'utilisateur
         $lastHigh = $user->getHigher();
         $lastHigher = $lastHigh?->getHigher();
-        $buyLimit = $lastHigh?->getBuyLimit();
+        $dateOfLastHigher = $lastHigh?->getDailyCac()?->getCreatedAt()?->format('Y-m-d\TH:i:s\Z');
         $positionRepository = $this->entityManager->getRepository(Position::class);
+        $buyLimit = $lastHigh?->getBuyLimit();
         [$waitingPositions, $runningPositions, $closedPositions] = $positionRepository->getUserPositions($user->getId());
 
         return $this->json(
             [
                 'lastHigher' => $lastHigher,
+                'dateOfLastHigher' => $dateOfLastHigher,
                 'buyLimit' => $buyLimit,
                 'waitingPositions' => $waitingPositions,
                 'runningPositions' => $runningPositions,
@@ -89,17 +101,17 @@ class ApiController extends AbstractController
 
         $lastHighEntity = $this->setNewUserLastLvcHigher($lastHighEntity, $cac);
 
-        /* Je persiste les données et je les insère en base.
-        Je le fais avant de le transmettre à l'user pour qu'un id soit créé */
+        // Je persiste les données pour créer l'id du lashHigh avant de l'assigner à l'utilisateur.
         $lastHighRepository->add($lastHighEntity, true);
-
-        // J'assigne ce plus haut à l'utilisateur courant et j'enregistre à nouveau en base
         $user->setHigher($lastHighEntity);
+
+        // On trace la dernière cotation utilisée pour le calcul des données de trading de l'utilisateur.
+        $user->setLastCacUpdated($cac);
 
         $this->entityManager->flush();
 
         // je crée également les positions en rapport avec la nouvelle buyLimit
-        $this->setPositions($lastHighEntity, []);
+        $this->positionHandler->setPositions($lastHighEntity, []);
     }
 
     public function setNewUserLastCacHigher(?Cac $cac): LastHigh
@@ -118,7 +130,7 @@ class ApiController extends AbstractController
 
     public function setNewUserLastLvcHigher(LastHigh $lastHighEntity, ?Cac $cac): LastHigh
     {
-        // à partir de l'entity Cac, je récupère l'objet LVC contemporain
+        // à partir de l'entité Cac, je récupère l'objet LVC contemporain
         $lvcRepository = $this->entityManager->getRepository(Lvc::class);
         $lvc = $lvcRepository->findOneBy(["createdAt" => $cac?->getCreatedAt()]);
         if (!$lvc) {
@@ -136,70 +148,5 @@ class ApiController extends AbstractController
         $lastHighEntity->setDailyLvc($lvc);
 
         return $lastHighEntity;
-    }
-
-    /**
-     * Met à jour les positions en attente d'un utilisateur dont la buyLimit n'a pas été touchée
-     * @param LastHigh $lastHigh
-     * @param array<Position> $positions
-     * @return void
-     */
-    public function setPositions(LastHigh $lastHigh, array $positions = []): void
-    {
-        // je récupère l'user en session
-        $user = $this->getUser();
-
-        // Je compte les positions passées en paramètre
-        $nbPositions = count($positions);
-
-        /* Si la taille du tableau n'est pas égal à 0 ou 3, c'est qu'une position du cycle d'achat
-        a été passée en isRunning : les positions isWaiting de la même buyLimit sont alors gelées */
-        if (!in_array($nbPositions, [0, 3], true)) {
-            $this->logger->info(
-                sprintf(
-                    "Pas de mise à jour des positions. Au moins une position isRunning existe avec une buyLimit = %s",
-                    $lastHigh->getBuyLimit()
-                )
-            );
-
-            return;
-        }
-
-        // je fixe les % d'écart entre les lignes pour le cac et pour le lvc (qui a un levier x2)
-        $delta = [
-            'cac' => [0, 2, 4],
-            'lvc' => [0, 4, 8]
-        ];
-
-        // je boucle sur les positions existantes, sinon j'en crée 3 nouvelles
-        for ($i = 0; $i < 3; $i++) {
-            $position = $nbPositions === 0 ? new Position() : $positions[$i];
-            $position->setBuyLimit($lastHigh);
-            $buyLimit = $lastHigh->getBuyLimit();
-
-            // positions prises à 0, -2 et -4 %
-            $positionDeltaCac = $buyLimit - ($buyLimit * $delta['cac'][$i] / 100);
-            $position->setBuyTarget(round($positionDeltaCac, 2));
-
-            // la revente d'une position est fixée à +10 %
-            $position->setLvcSellTarget(round($positionDeltaCac * 1.1, 2));
-            $position->setWaiting(true);
-            $position->setUserPosition($user);
-            $lvcBuyLimit = $lastHigh->getLvcBuyLimit();
-
-            // positions prises à 0, -4 et -8 %
-            $positionDeltaLvc = $lvcBuyLimit - ($lvcBuyLimit * $delta['lvc'][$i] / 100);
-            $position->setLvcBuyTarget(round($positionDeltaLvc, 2));
-            $position->setQuantity((int)round(Position::LINE_VALUE / $positionDeltaLvc));
-
-            // revente d'une position à +20 %
-            $position->setLvcSellTarget(round($positionDeltaLvc * 1.2, 2));
-
-            $this->entityManager->persist($position);
-        }
-        $this->entityManager->flush();
-
-        // NOTE : 100 mails par mois dans le cadre du plan gratuit proposé par Mailtrap
-        // $this->mailer->sendEmail($positions);
     }
 }
