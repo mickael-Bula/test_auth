@@ -20,8 +20,8 @@ class RegistrationController extends AbstractController
     public function register(
         Request $request,
         UserPasswordHasherInterface $passwordHasher,
-        EntityManagerInterface $entityManager
-    ): JsonResponse {
+        EntityManagerInterface $entityManager): JsonResponse
+    {
         $data = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
 
         // Valide les données reçues

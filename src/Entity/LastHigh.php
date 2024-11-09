@@ -14,6 +14,7 @@ class LastHigh
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
+    #[Groups(["position_read"])]
     private ?int $id = null;
 
     /**

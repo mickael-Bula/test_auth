@@ -9,6 +9,7 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: LvcRepository::class)]
+#[ORM\Index(name: 'idx_lvc_created_at', columns: ['created_at'])]
 class Lvc
 {
     #[ORM\Id]
