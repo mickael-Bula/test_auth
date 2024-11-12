@@ -197,15 +197,14 @@ class PositionHandler
      */
     public function setPositions(LastHigh $lastHigh, array $positions = []): void
     {
-        // Je récupère l'utilisateur courant.
-        $user = $this->getCurrentUser();
+        // Si le tableau des positions est vide, on crée 3 nouvelles positions
+        if (count($positions) === 0) {
+            $positions = array_map(static fn() => new Position(), range(1, 3));
+        }
 
-        // Je compte les positions passées en paramètre.
-        $nbPositions = count($positions);
-
-        /* Si la taille du tableau n'est pas égal à 0 ou 3, c'est qu'une position du cycle d'achat
+        /* Si la taille du tableau n'est pas égal à 3, c'est qu'une position du cycle d'achat
         a été passée en isRunning : les positions isWaiting de la même buyLimit sont alors gelées. */
-        if (!in_array($nbPositions, [0, 3], true)) {
+        if (count($positions) !== 3) {
             $message = 'Pas de mise à jour des positions. ';
             $message .= 'Au moins une position isRunning existe avec une buyLimit = %s';
             $this->logger->info(sprintf($message, $lastHigh->getBuyLimit()));
@@ -213,36 +212,45 @@ class PositionHandler
             return;
         }
 
+        foreach ($positions as $key => $position) {
+            $this->setPosition($lastHigh, $position, $key);
+        }
+        $this->entityManager->flush();
+    }
+
+    public function setPosition(LastHigh $lastHigh, Position $position, int $key): Position
+    {
+        // Je récupère l'utilisateur courant.
+        $user = $this->getCurrentUser();
+
         // Je fixe les % d'écart entre les lignes pour le cac et pour le lvc (qui a un levier x2).
         $delta = [
             'cac' => [0, 2, 4],
             'lvc' => [0, 4, 8]
         ];
 
-        // Je boucle sur les positions existantes, sinon j'en crée 3 nouvelles.
-        foreach (range(0, 2) as $i) {
-            $position = $nbPositions === 0 ? new Position() : $positions[$i];
-            $position->setBuyLimit($lastHigh);
-            $buyLimit = $lastHigh->getBuyLimit();
+        $position->setBuyLimit($lastHigh);
+        $buyLimit = $lastHigh->getBuyLimit();
 
-            // Positions prises à 0, -2 et -4 %.
-            $positionDeltaCac = $buyLimit - ($buyLimit * $delta['cac'][$i] / 100);
-            $position->setBuyTarget(round($positionDeltaCac, 2));
-            $position->setWaiting(true);
-            $position->setUserPosition($user);
-            $lvcBuyLimit = $lastHigh->getLvcBuyLimit();
+        // Positions prises à 0, -2 et -4 %.
+        $positionDeltaCac = $buyLimit - ($buyLimit * $delta['cac'][$key] / 100);
+        $position->setBuyTarget(round($positionDeltaCac, 2));
+        $position->setWaiting(true);
+        $position->setBuyDate($lastHigh->getDailyCac()?->getCreatedAt());
+        $position->setUserPosition($user);
+        $lvcBuyLimit = $lastHigh->getLvcBuyLimit();
 
-            // Positions prises à 0, -4 et -8 %.
-            $positionDeltaLvc = $lvcBuyLimit - ($lvcBuyLimit * $delta['lvc'][$i] / 100);
-            $position->setLvcBuyTarget(round($positionDeltaLvc, 2));
-            $position->setQuantity((int)round(Position::LINE_VALUE / $positionDeltaLvc));
+        // Positions prises à 0, -4 et -8 %.
+        $positionDeltaLvc = $lvcBuyLimit - ($lvcBuyLimit * $delta['lvc'][$key] / 100);
+        $position->setLvcBuyTarget(round($positionDeltaLvc, 2));
+        $position->setQuantity((int)round(Position::LINE_VALUE / $positionDeltaLvc));
 
-            // Revente d'une position à +20 %.
-            $position->setLvcSellTarget(round($positionDeltaLvc * 1.2, 2));
+        // Revente d'une position à +20 %.
+        $position->setLvcSellTarget(round($positionDeltaLvc * 1.2, 2));
 
-            $this->entityManager->persist($position);
-        }
-        $this->entityManager->flush();
+        $this->entityManager->persist($position);
+
+        return $position;
     }
 
     /**

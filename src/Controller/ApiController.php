@@ -92,8 +92,6 @@ class ApiController extends AbstractController
         /** @var User $user */
         $user = $this->getUser();
 
-        $lastHighRepository = $this->entityManager->getRepository(LastHigh::class);
-
         // On récupère le plus haut le plus récent du Cac et on en fait le plus haut de l'utilisateur.
         $cac = $this->entityManager->getRepository(Cac::class)->findOneBy([], ['id' => 'DESC']);
 
@@ -102,6 +100,7 @@ class ApiController extends AbstractController
         $lastHighEntity = $this->setNewUserLastLvcHigher($lastHighEntity, $cac);
 
         // Je persiste les données pour créer l'id du lashHigh avant de l'assigner à l'utilisateur.
+        $lastHighRepository = $this->entityManager->getRepository(LastHigh::class);
         $lastHighRepository->add($lastHighEntity, true);
         $user->setHigher($lastHighEntity);
 

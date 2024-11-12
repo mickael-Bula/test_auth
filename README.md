@@ -161,3 +161,24 @@ $ composer require form validator
 $ php bin/console make:controller Registration
 ```
 
+## Ajout de tests unitaires et d'intégration
+
+Pour les tests unitaires, on se contente de créer des `mocks` pour gagner en rapidité.
+On utilise une BDD de test et des `fixtures` uniquement pour les tests d'intégration.
+
+```bash
+$ composer require --dev symfony/test-pack
+$ php bin/console make:test # permet de déclarer la classe de test et de choisir la classe phpunit à étendre
+$ php bin/console --env=test doctrine:database:create # crée la BDD déclarée dans le .env.test, suffixée avec _test
+$ php bin/console --env=test doctrine:schema:create
+$ composer require --dev dama/doctrine-test-bundle # module permettant d'annuler les modifications faites en base de test
+$ composer require --dev doctrine/doctrine-fixtures-bundle
+$ php bin/console make:fixtures
+
+$ php bin/console doctrine:fixtures:load --env=test --purge-with-truncate # efface puis recharge les fixtures en BDD de test
+```
+
+Pour créer rapidement des `fixtures` exploitables,
+je crée une commande exportant au format JSON les données de la base de développement.
+Le fichier est ensuite chargé dans les `fixtures` de tests.
+
