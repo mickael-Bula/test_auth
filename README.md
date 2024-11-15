@@ -182,3 +182,9 @@ Pour créer rapidement des `fixtures` exploitables,
 je crée une commande exportant au format JSON les données de la base de développement.
 Le fichier est ensuite chargé dans les `fixtures` de tests.
 
+## Charger les fixtures dans l'ordre : DependentFixtureInterface
+
+La **fixtures** qui dépend d'une autre doit implémenter l'interface `DependentFixtureInterface`.
+Celle-ci requiert l'ajout de la méthode `getDependencies`, 
+qui retourne un tableau des fixtures dont la classe courante dépend.
+

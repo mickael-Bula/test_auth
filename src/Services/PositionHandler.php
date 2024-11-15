@@ -81,6 +81,14 @@ class PositionHandler
         if (is_null($lastHighInDatabase)) {
             $lastHighInDatabase = $this->setHigher($cac);
         }
+
+        // TODO : il faut également vérifier le taux d'engagement : si 1 ou 2, la nouvelle règle ne s'applique pas.
+        // Si au moins une position en attente existe, on ne relève pas la buyLimit.
+        $positions = $this->getPositionsOfCurrentUser('isWaiting');
+        if (count($positions) !== 0) {
+            return;
+        }
+
         // Si lastHigh a été dépassé, je l'actualise.
         if ($cac->getHigher() > $lastHighInDatabase->getHigher()) {
             $this->updateHigher($cac, $lastHighInDatabase);
@@ -135,7 +143,7 @@ class PositionHandler
         // J'actualise le plus haut.
         $newLastHigh = $this->setBuyLimitToNewLastHigh($cac, $lastHigh);
 
-        // je mets à jour les positions en attente de l'utilisateur liées au lastHigh (via la buyLimit).
+        // je mets à jour les positions en attente de l'utilisateur et liées au lastHigh (via la buyLimit).
         $positions = $positionsRepository->findBy(
             [
                 'userPosition' => $this->getCurrentUser(),
