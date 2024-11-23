@@ -188,3 +188,12 @@ La **fixtures** qui dépend d'une autre doit implémenter l'interface `Dependent
 Celle-ci requiert l'ajout de la méthode `getDependencies`, 
 qui retourne un tableau des fixtures dont la classe courante dépend.
 
+## Ajoute la propriété User.amount
+
+La valeur est récupérée depuis le front et représente la montant du portefeuille de l'utilisateur.
+
+Pour ajouter la propriété dans la table User :
+
+- déclarer la propriété amount dans l'entité, avec le setter et le getter
+- générer la migration avec `php bin/console doctrine:migrations:diff`
+- appliquer la migration : `php bin/console doctrine:migrations:migrate`

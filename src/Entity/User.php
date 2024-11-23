@@ -34,6 +34,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private ?string $password = null;
 
+    #[ORM\Column(type: 'float', nullable: true)]
+    private ?float $amount = null;
+
     #[ORM\ManyToOne(inversedBy: 'users')]
     private ?Cac $lastCacUpdated = null;
 
@@ -174,6 +177,21 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         if ($this->positions->removeElement($position) && $position->getUserPosition() === $this) {
             $position->setUserPosition(null);
         }
+
+        return $this;
+    }
+
+    public function getAmount(): ?float
+    {
+        return $this->amount;
+    }
+
+    /**
+     * Le montant est formaté avec deux décimales.
+     */
+    public function setAmount(?float $amount): self
+    {
+        $this->amount = $amount !== null ? round($amount, 2) : null;
 
         return $this;
     }

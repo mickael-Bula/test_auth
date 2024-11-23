@@ -8,6 +8,7 @@ use App\Entity\Position;
 use App\Services\PositionHandler;
 use App\Services\LastHighHandler;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -64,6 +65,7 @@ class ApiController extends AbstractController
         $this->positionHandler->updateCacData($cacList);
 
         // On retourne les données de trading de l'utilisateur
+        $amount = $user->getAmount();
         $lastHigh = $user->getHigher();
         $lastHigher = $lastHigh?->getHigher();
         $dateOfLastHigher = $lastHigh?->getDailyCac()?->getCreatedAt()?->format('Y-m-d\TH:i:s\Z');
@@ -73,6 +75,7 @@ class ApiController extends AbstractController
 
         return $this->json(
             [
+                'amount' => $amount,
                 'lastHigher' => $lastHigher,
                 'dateOfLastHigher' => $dateOfLastHigher,
                 'buyLimit' => $buyLimit,
@@ -84,6 +87,34 @@ class ApiController extends AbstractController
             [],
             ['groups' => 'position_read'],
         );
+    }
 
+    /**
+     * @throws \JsonException
+     */
+    #[Route('/api/config/amount', methods: ['POST'])]
+    public function setUserAmount(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+
+        $data = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        if (!isset($data['amount']) || !is_numeric($data['amount'])) {
+            return new JsonResponse(['error' => 'Montant invalide.'], 400);
+        }
+
+        $amountValue = (float) $data['amount'];
+
+        // Valide le montant
+        if ($amountValue <= 0) {
+            return $this->json(['error' => 'Le montant doit être supérieur à 0'], 400);
+        }
+
+        // Insère le montant dans la table User
+        $user->setAmount($amountValue);
+        $this->entityManager->persist($user);
+        $this->entityManager->flush();
+
+        return $this->json(['success' => 'Montant mis à jour.', 'amount' => $user->getAmount()]);
     }
 }
