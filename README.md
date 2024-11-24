@@ -104,6 +104,14 @@ En réponse, on reçoit le token, qu'il faudra alors enregistrer et fournir dans
 > il doit être fourni dans le header Authorization avec comme valeur Bearer <token>,
 > sans guillemets entre Bearer et le token.
 
+## Ajouter le token dans Postman
+
+Pour interroger les routes protégées depuis Postman,
+il faut récupérer le token valide, puis le saisir dans l'onglet Authorization > Auth Type : sélectionner Bearer token,
+avec comme valeur le token récupéré.
+
+Postman se charge alors d'ajouter le token dans les en-têtes de la requête.
+
 ## Configuration des CORS pour autoriser mon front Vue.js
 Pour faciliter la gestion des CORS, j'installe nelmio :
 
@@ -197,3 +205,10 @@ Pour ajouter la propriété dans la table User :
 - déclarer la propriété amount dans l'entité, avec le setter et le getter
 - générer la migration avec `php bin/console doctrine:migrations:diff`
 - appliquer la migration : `php bin/console doctrine:migrations:migrate`
+
+## TODOs
+
+Il faut ajouter une table pour enregistrer les véhicules de trading : 
+permet de ne pas se limiter au LVC. Enregistrera notamment le libellé.
+
+Il faudra modifier en conséquence les champs qui comporte le nom lvc_ pour quelque chose de plus générique.
