@@ -44,6 +44,9 @@ class PositionRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * Calcule le PRU et le formate avec deux décimales.
+     */
     public function getPriceEarningRatio(int $userId, string $status)
     {
         // Vérifie la présence du champ pour éviter les injections ou les erreurs
@@ -51,13 +54,17 @@ class PositionRepository extends ServiceEntityRepository
             throw new \InvalidArgumentException('Champ `status` invalide : ' . $status);
         }
 
-        return $this->createQueryBuilder('p')
-            ->select('SUM(p.quantity) AS total, SUM(p.lvcBuyTarget) / COUNT(p.quantity) AS pru')
+        $result = $this->createQueryBuilder('p')
+            ->select('SUM(p.quantity) AS total', 'SUM(p.lvcBuyTarget) / COUNT(p.quantity) AS pru')
             ->where('p.userPosition = :user')
             ->andWhere('p.' . $status . ' = true')
             ->setParameter('user', $userId)
             ->getQuery()
-            ->getResult();
-    }
+            ->getSingleResult();
 
+        // Formatage hors de la requête pour améliorer la portabilité.
+        $result['pru'] = number_format((float) $result['pru'], 2);
+
+        return $result;
+    }
 }

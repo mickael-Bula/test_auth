@@ -82,12 +82,12 @@ class PositionHandler
             $lastHighInDatabase = $this->setHigher($cac);
         }
 
-        // TODO : il faut également vérifier le taux d'engagement : si 1 ou 2, la nouvelle règle ne s'applique pas.
+        // TODO : il faudra vérifier le taux d'engagement : si 1 ou 2, la nouvelle règle ci-dessous ne s'applique pas.
         // Si au moins une position en attente existe, on ne relève pas la buyLimit.
-        $positions = $this->getPositionsOfCurrentUser('isWaiting');
-        if (count($positions) !== 0) {
-            return;
-        }
+//        $positions = $this->getPositionsOfCurrentUser('isWaiting');
+//        if (count($positions) > 0) {
+//            return;
+//        }
 
         // Si lastHigh a été dépassé, je l'actualise.
         if ($cac->getHigher() > $lastHighInDatabase->getHigher()) {
@@ -213,9 +213,11 @@ class PositionHandler
         /* Si la taille du tableau n'est pas égal à 3, c'est qu'une position du cycle d'achat
         a été passée en isRunning : les positions isWaiting de la même buyLimit sont alors gelées. */
         if (count($positions) !== 3) {
-            $message = 'Pas de mise à jour des positions. ';
-            $message .= 'Au moins une position isRunning existe avec une buyLimit = %s';
-            $this->logger->info(sprintf($message, $lastHigh->getBuyLimit()));
+            $this->logger->info(sprintf(
+                'Pas de mise à jour des positions. '
+                    . 'Au moins une position isRunning existe avec une buyLimit = %s',
+                $lastHigh->getBuyLimit())
+            );
 
             return;
         }
