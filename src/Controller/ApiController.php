@@ -17,7 +17,6 @@ class ApiController extends AbstractController
 {
     private EntityManagerInterface $entityManager;
     private PositionHandler $positionHandler;
-
     private LastHighHandler $lastHighHandler;
 
     public function __construct(
@@ -58,7 +57,7 @@ class ApiController extends AbstractController
 
         // Si aucun plus haut n'est affecté à l'utilisateur, on le crée
         if (is_null($user->getHigher())) {
-            $this->lastHighHandler->setHigherToNewRegisteredUser();
+            $this->lastHighHandler->setHigherToNewRegisteredUser($user);
         }
 
         // Mise à jour des journées de cotation manquantes depuis la dernière visite de l'utilisateur.
@@ -78,7 +77,9 @@ class ApiController extends AbstractController
         $lastHigher = $lastHigh?->getHigher();
         $dateOfLastHigher = $lastHigh?->getDailyCac()?->getCreatedAt()?->format('Y-m-d\TH:i:s\Z');
         $buyLimit = $lastHigh?->getBuyLimit();
-        [$waitingPositions, $runningPositions, $closedPositions] = $positionRepository->getUserPositions($user->getId());
+        [$waitingPositions, $runningPositions, $closedPositions] = $positionRepository->getUserPositions(
+            $user->getId()
+        );
 
         return $this->json(
             [

@@ -42,17 +42,35 @@ class PositionHandlerTest extends TestCase
         $positionMock = $this->createMock(Position::class);
 
         // Définir les expectations sur le mock de Position avant d'appeler setPosition
-        $positionMock->expects($this->once())->method('setBuyLimit')->with($lastHighMock);
-        $positionMock->expects($this->once())->method('setBuyTarget')->with(100.0); // Pour `key = 0`, delta 'cac' est 0%
-        $positionMock->expects($this->once())->method('setWaiting')->with(true);
-        $positionMock->expects($this->once())->method('setBuyDate')->with(new \DateTime('2023-01-01'));
-        $positionMock->expects($this->once())->method('setUserPosition')->with($userMock);
-        $positionMock->expects($this->once())->method('setLvcBuyTarget')->with(50.0); // Pour `key = 0`, delta 'lvc' est 0%
-        $positionMock->expects($this->once())->method('setQuantity')->with((int)round(Position::LINE_VALUE / 50.0));
-        $positionMock->expects($this->once())->method('setLvcSellTarget')->with(60.0); // 50.0 * 1.2 = 60.0
+        $positionMock->expects($this->once())
+            ->method('setBuyLimit')
+            ->with($lastHighMock);
+        $positionMock->expects($this->once())
+            ->method('setBuyTarget')
+            ->with(100.0); // Pour `key = 0`, delta 'cac' est 0%
+        $positionMock->expects($this->once())
+            ->method('setWaiting')
+            ->with(true);
+        $positionMock->expects($this->once())
+            ->method('setBuyDate')
+            ->with(new \DateTime('2023-01-01'));
+        $positionMock->expects($this->once())
+            ->method('setUserPosition')
+            ->with($userMock);
+        $positionMock->expects($this->once())
+            ->method('setLvcBuyTarget')
+            ->with(50.0); // Pour `key = 0`, delta 'lvc' est 0%
+        $positionMock->expects($this->once())
+            ->method('setQuantity')
+            ->with((int)round(Position::LINE_VALUE / 50.0));
+        $positionMock->expects($this->once())
+            ->method('setLvcSellTarget')
+            ->with(60.0); // 50.0 * 1.2 = 60.0
 
         // Simulation de l'appel à `persist`
-        $entityManagerMock->expects($this->once())->method('persist')->with($positionMock);
+        $entityManagerMock->expects($this->once())
+            ->method('persist')
+            ->with($positionMock);
 
         // Définir la clé pour les delta
         $key = 0;

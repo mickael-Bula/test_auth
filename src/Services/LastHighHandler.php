@@ -9,9 +9,8 @@ use App\Entity\LastHigh;
 use App\Entity\Position;
 use Psr\Log\LoggerInterface;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 
-class LastHighHandler extends AbstractController
+class LastHighHandler
 {
     private EntityManagerInterface $entityManager;
     private PositionHandler $positionHandler;
@@ -28,11 +27,8 @@ class LastHighHandler extends AbstractController
         $this->logger = $myAppLogger;
     }
 
-    public function setHigherToNewRegisteredUser(): void
+    public function setHigherToNewRegisteredUser(User $user): void
     {
-        /** @var User $user */
-        $user = $this->getUser();
-
         // On récupère le plus haut le plus récent du Cac et on en fait le plus haut de l'utilisateur.
         $cac = $this->entityManager->getRepository(Cac::class)->findOneBy([], ['id' => 'DESC']);
 
@@ -75,7 +71,7 @@ class LastHighHandler extends AbstractController
         $lvc = $lvcRepository->findOneBy(["createdAt" => $cac?->getCreatedAt()]);
         if (!$lvc) {
             $date = $cac?->getCreatedAt() !== null ? $cac?->getCreatedAt()?->format("D/M/Y") : null;
-            $this->logger->error(sprintf("Pas de LVC correpondant pour le CAC fournit en date du %s", $date));
+            $this->logger->error(sprintf("Pas de LVC correspondant au CAC fournit en date du %s", $date));
         }
         $lvcHigher = $lvc->getHigher();
 

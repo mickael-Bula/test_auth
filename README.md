@@ -198,7 +198,7 @@ qui retourne un tableau des fixtures dont la classe courante dépend.
 
 ## Ajoute la propriété User.amount
 
-La valeur est récupérée depuis le front et représente la montant du portefeuille de l'utilisateur.
+La valeur est récupérée depuis le front et représente le montant du portefeuille de l'utilisateur.
 
 Pour ajouter la propriété dans la table User :
 
@@ -212,3 +212,9 @@ Il faut ajouter une table pour enregistrer les véhicules de trading :
 permet de ne pas se limiter au LVC. Enregistrera notamment le libellé.
 
 Il faudra modifier en conséquence les champs qui comporte le nom lvc_ pour quelque chose de plus générique.
+
+Ajouter une règle de gestion :
+si un nouveau cycle d'achat est initié,
+les positions en attente du cycle précédent doivent être annulées (issue #4).
+
+Lors de l'enregistrement d'un utilisateur, il faut saisir un montant initial (issue #5).
