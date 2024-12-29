@@ -9,8 +9,9 @@ use App\Entity\LastHigh;
 use App\Entity\Position;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
+use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 
-class SecondFixtures extends Fixture
+class SecondFixtures extends Fixture implements DependentFixtureInterface
 {
     public function load(ObjectManager $manager): void
     {
@@ -39,5 +40,12 @@ class SecondFixtures extends Fixture
 
         $manager->flush();
         $manager->getConnection()->commit();
+    }
+
+    public function getDependencies(): array
+    {
+        return [
+            FirstFixtures::class,
+        ];
     }
 }

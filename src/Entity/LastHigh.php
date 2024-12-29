@@ -37,6 +37,7 @@ class LastHigh
     private ?float $lvcBuyLimit = null;
 
     #[ORM\ManyToOne(inversedBy: 'lastHigher')]
+    #[Groups(["position_read"])]
     private ?Cac $dailyCac = null;
 
     #[ORM\ManyToOne(inversedBy: 'lastHigher')]

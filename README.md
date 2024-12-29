@@ -104,6 +104,14 @@ En réponse, on reçoit le token, qu'il faudra alors enregistrer et fournir dans
 > il doit être fourni dans le header Authorization avec comme valeur Bearer <token>,
 > sans guillemets entre Bearer et le token.
 
+## Ajouter le token dans Postman
+
+Pour interroger les routes protégées depuis Postman,
+il faut récupérer le token valide, puis le saisir dans l'onglet Authorization > Auth Type : sélectionner Bearer token,
+avec comme valeur le token récupéré.
+
+Postman se charge alors d'ajouter le token dans les en-têtes de la requête.
+
 ## Configuration des CORS pour autoriser mon front Vue.js
 Pour faciliter la gestion des CORS, j'installe nelmio :
 
@@ -182,3 +190,31 @@ Pour créer rapidement des `fixtures` exploitables,
 je crée une commande exportant au format JSON les données de la base de développement.
 Le fichier est ensuite chargé dans les `fixtures` de tests.
 
+## Charger les fixtures dans l'ordre : DependentFixtureInterface
+
+La **fixtures** qui dépend d'une autre doit implémenter l'interface `DependentFixtureInterface`.
+Celle-ci requiert l'ajout de la méthode `getDependencies`, 
+qui retourne un tableau des fixtures dont la classe courante dépend.
+
+## Ajoute la propriété User.amount
+
+La valeur est récupérée depuis le front et représente le montant du portefeuille de l'utilisateur.
+
+Pour ajouter la propriété dans la table User :
+
+- déclarer la propriété amount dans l'entité, avec le setter et le getter
+- générer la migration avec `php bin/console doctrine:migrations:diff`
+- appliquer la migration : `php bin/console doctrine:migrations:migrate`
+
+## TODOs
+
+Il faut ajouter une table pour enregistrer les véhicules de trading : 
+permet de ne pas se limiter au LVC. Enregistrera notamment le libellé.
+
+Il faudra modifier en conséquence les champs qui comporte le nom lvc_ pour quelque chose de plus générique.
+
+Ajouter une règle de gestion :
+si un nouveau cycle d'achat est initié,
+les positions en attente du cycle précédent doivent être annulées (issue #4).
+
+Lors de l'enregistrement d'un utilisateur, il faut saisir un montant initial (issue #5).

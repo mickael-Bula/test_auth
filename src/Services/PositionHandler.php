@@ -81,6 +81,14 @@ class PositionHandler
         if (is_null($lastHighInDatabase)) {
             $lastHighInDatabase = $this->setHigher($cac);
         }
+
+        // TODO : il faudra vérifier le taux d'engagement : si 1 ou 2, la nouvelle règle ci-dessous ne s'applique pas.
+        // Si au moins une position en attente existe, on ne relève pas la buyLimit.
+//        $positions = $this->getPositionsOfCurrentUser('isWaiting');
+//        if (count($positions) > 0) {
+//            return;
+//        }
+
         // Si lastHigh a été dépassé, je l'actualise.
         if ($cac->getHigher() > $lastHighInDatabase->getHigher()) {
             $this->updateHigher($cac, $lastHighInDatabase);
@@ -135,7 +143,7 @@ class PositionHandler
         // J'actualise le plus haut.
         $newLastHigh = $this->setBuyLimitToNewLastHigh($cac, $lastHigh);
 
-        // je mets à jour les positions en attente de l'utilisateur liées au lastHigh (via la buyLimit).
+        // je mets à jour les positions en attente de l'utilisateur et liées au lastHigh (via la buyLimit).
         $positions = $positionsRepository->findBy(
             [
                 'userPosition' => $this->getCurrentUser(),
@@ -205,9 +213,11 @@ class PositionHandler
         /* Si la taille du tableau n'est pas égal à 3, c'est qu'une position du cycle d'achat
         a été passée en isRunning : les positions isWaiting de la même buyLimit sont alors gelées. */
         if (count($positions) !== 3) {
-            $message = 'Pas de mise à jour des positions. ';
-            $message .= 'Au moins une position isRunning existe avec une buyLimit = %s';
-            $this->logger->info(sprintf($message, $lastHigh->getBuyLimit()));
+            $this->logger->info(sprintf(
+                'Pas de mise à jour des positions. '
+                    . 'Au moins une position isRunning existe avec une buyLimit = %s',
+                $lastHigh->getBuyLimit())
+            );
 
             return;
         }
@@ -278,22 +288,23 @@ class PositionHandler
                 $this->openPosition($lvc, $position);
                 // Si la position mise à jour est la première de sa série...
                 if ($this->checkIsFirst($position)) {
-                    // ...on crée et on récupère le nouveau point haut en passant le cac contemporain du lvc courant.
+                    // ...on récupère le nouveau point haut en passant le cac contemporain du lvc courant.
                     $cac = $this->entityManager->getRepository(Cac::class)
                         ->findOneBy(
                             ['createdAt' => $lvc->getCreatedAt()]
                         );
                     if (!$cac) {
-                        // $date = $lvc->getCreatedAt() !== null ? $lvc->getCreatedAt()->format("D/M/Y") : null;
                         $date = $lvc->getCreatedAt()?->format("D/M/Y");
                         $message = "Impossible de récupérer le CAC correspondant au LVC en date du %s";
                         $this->logger->error(sprintf($message, $date));
                         throw new \RuntimeException("Impossible de récupérer le CAC correspondant au LVC.");
                     }
-                    // On récupère toutes les positions en attente qui ont un point haut différent...
+                    // On récupère toutes les positions en attente qui ont un point haut différent
                     $isWaitingPositions = $this->getIsWaitingPositions($position);
-                    // ...pour vérifier celles qui sont toujours au nombre de 3 pour une même buyLimit (non isRunning).
+
+                    // On ne conserve que les positions au nombre de 3 pour une même buyLimit (non isRunning).
                     $isWaitingPositionsChecked = $this->checkIsWaitingPositions($isWaitingPositions);
+
                     // Si elles existent, on les met à jour, sinon on crée trois nouvelles positions.
                     $this->setHigher($cac, $isWaitingPositionsChecked);
                 }
@@ -405,7 +416,6 @@ class PositionHandler
         $results = array_reduce($positions, static function ($result, $position) {
             /** @var Position $position */
             // Je récupère l'id de la propriété buyLimit. S'il n'existe pas dans le tableau $result, je l'ajoute.
-            // $buyLimit = $position->getBuyLimit() ? $position->getBuyLimit()->getId() : null;
             $buyLimit = $position->getBuyLimit()?->getId();
             if (!isset($result[$buyLimit])) {
                 $result[$buyLimit] = [];
@@ -416,8 +426,19 @@ class PositionHandler
             return $result;
         }, []);
 
-        // Pour chacun des résultats, si on trouve 3 positions, on les ajoute à la liste des positions à traiter.
-        return array_filter($results, static fn($item) => count($item) === 3);
+        // On supprime les positions si elles ne sont pas au nombre de trois pour une même limite d'achat.
+        foreach ($results as $buyLimit => $items) {
+            if (count($items) !== 3) {
+                foreach ($items as $position) {
+                    $this->entityManager->remove($position);
+                }
+                unset($results[$buyLimit]);
+            }
+        }
+        $this->entityManager->flush();
+
+        // On retourne le reste du tableau, c'est-à-dire les positions au nombre de trois pour une même limite d'achat.
+        return $results;
     }
 
     /**
