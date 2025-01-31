@@ -1,0 +1,15 @@
+parameters:
+    level: 6
+    paths:
+        - bin/
+        - config/
+        - public/
+        - src/
+        - tests/Functional
+        - tests/Service
+    ignoreErrors:
+        - '#Property App\\Entity\\Cac::\$id \(int\|null\) is never assigned int#'
+        - '#Property App\\Entity\\Lvc::\$id \(int\|null\) is never assigned int#'
+        - '#Property App\\Entity\\User::\$id \(int\|null\) is never assigned int#'
+        - '#Property App\\Entity\\Position::\$id \(int\|null\) is never assigned int#'
+        - '#Property App\\Entity\\LastHigh::\$id \(int\|null\) is never assigned int#'

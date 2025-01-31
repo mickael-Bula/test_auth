@@ -19,7 +19,7 @@ class Cac
     private ?int $id = null;
 
     #[ORM\Column(type: Types::DATE_MUTABLE)]
-    #[Groups(["position_read"])]
+    #[Groups(['position_read'])]
     private ?\DateTimeInterface $createdAt = null;
 
     #[ORM\Column]

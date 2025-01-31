@@ -1,0 +1,326 @@
+{
+    "cacData": [
+        {
+            "id": 1,
+            "createdAt": "2024-09-25 00:00:00",
+            "closing": 7565.62,
+            "opening": 7549.26,
+            "lower": 7546.86,
+            "higher": 7595.77
+        },
+        {
+            "id": 2,
+            "createdAt": "2024-09-26 00:00:00",
+            "closing": 7742.09,
+            "opening": 7663.03,
+            "lower": 7652.61,
+            "higher": 7742.09
+        },
+        {
+            "id": 3,
+            "createdAt": "2024-09-27 00:00:00",
+            "closing": 7791.79,
+            "opening": 7762.45,
+            "lower": 7743.88,
+            "higher": 7804.64
+        },
+        {
+            "id": 4,
+            "createdAt": "2024-09-30 00:00:00",
+            "closing": 7635.75,
+            "opening": 7748.07,
+            "lower": 7634.82,
+            "higher": 7763.89
+        },
+        {
+            "id": 5,
+            "createdAt": "2024-10-01 00:00:00",
+            "closing": 7574.07,
+            "opening": 7623.33,
+            "lower": 7547.12,
+            "higher": 7654.58
+        },
+        {
+            "id": 6,
+            "createdAt": "2024-10-02 00:00:00",
+            "closing": 7577.59,
+            "opening": 7594.81,
+            "lower": 7548.98,
+            "higher": 7623.32
+        },
+        {
+            "id": 7,
+            "createdAt": "2024-10-03 00:00:00",
+            "closing": 7477.78,
+            "opening": 7555.23,
+            "lower": 7458.49,
+            "higher": 7555.24
+        },
+        {
+            "id": 8,
+            "createdAt": "2024-10-04 00:00:00",
+            "closing": 7541.36,
+            "opening": 7464.87,
+            "lower": 7460.29,
+            "higher": 7571.76
+        },
+        {
+            "id": 9,
+            "createdAt": "2024-10-07 00:00:00",
+            "closing": 7576.02,
+            "opening": 7571.97,
+            "lower": 7509.87,
+            "higher": 7585.33
+        },
+        {
+            "id": 10,
+            "createdAt": "2024-10-08 00:00:00",
+            "closing": 7521.32,
+            "opening": 7480.36,
+            "lower": 7475.78,
+            "higher": 7542.05
+        },
+        {
+            "id": 11,
+            "createdAt": "2024-10-09 00:00:00",
+            "closing": 7560.09,
+            "opening": 7527.03,
+            "lower": 7504.63,
+            "higher": 7567.58
+        },
+        {
+            "id": 12,
+            "createdAt": "2024-10-10 00:00:00",
+            "closing": 7541.59,
+            "opening": 7543.4,
+            "lower": 7515.9,
+            "higher": 7563.36
+        },
+        {
+            "id": 13,
+            "createdAt": "2024-10-11 00:00:00",
+            "closing": 7577.89,
+            "opening": 7530.88,
+            "lower": 7504.04,
+            "higher": 7587.52
+        },
+        {
+            "id": 14,
+            "createdAt": "2024-10-14 00:00:00",
+            "closing": 7602.06,
+            "opening": 7583.48,
+            "lower": 7544.54,
+            "higher": 7613.15
+        },
+        {
+            "id": 15,
+            "createdAt": "2024-10-15 00:00:00",
+            "closing": 7521.97,
+            "opening": 7595.06,
+            "lower": 7511.24,
+            "higher": 7601.53
+        },
+        {
+            "id": 16,
+            "createdAt": "2024-10-16 00:00:00",
+            "closing": 7492,
+            "opening": 7420.85,
+            "lower": 7420.85,
+            "higher": 7511.1
+        },
+        {
+            "id": 17,
+            "createdAt": "2024-10-17 00:00:00",
+            "closing": 7583.73,
+            "opening": 7510.13,
+            "lower": 7507.95,
+            "higher": 7624.22
+        },
+        {
+            "id": 18,
+            "createdAt": "2024-10-18 00:00:00",
+            "closing": 7613.05,
+            "opening": 7566.87,
+            "lower": 7566.87,
+            "higher": 7644.05
+        },
+        {
+            "id": 19,
+            "createdAt": "2024-10-21 00:00:00",
+            "closing": 7536.23,
+            "opening": 7579.08,
+            "lower": 7529.68,
+            "higher": 7620.46
+        },
+        {
+            "id": 20,
+            "createdAt": "2024-10-22 00:00:00",
+            "closing": 7535.1,
+            "opening": 7517.03,
+            "lower": 7472.16,
+            "higher": 7545.36
+        }
+    ],
+    "lvcData": [
+        {
+            "id": 1,
+            "createdAt": "2024-09-25 00:00:00",
+            "closing": 37.83,
+            "opening": 37.69,
+            "lower": 37.67,
+            "higher": 38.15
+        },
+        {
+            "id": 2,
+            "createdAt": "2024-09-26 00:00:00",
+            "closing": 39.57,
+            "opening": 38.72,
+            "lower": 38.7,
+            "higher": 39.57
+        },
+        {
+            "id": 3,
+            "createdAt": "2024-09-27 00:00:00",
+            "closing": 40.12,
+            "opening": 39.88,
+            "lower": 39.62,
+            "higher": 40.23
+        },
+        {
+            "id": 4,
+            "createdAt": "2024-09-30 00:00:00",
+            "closing": 38.51,
+            "opening": 39.59,
+            "lower": 38.5,
+            "higher": 39.83
+        },
+        {
+            "id": 5,
+            "createdAt": "2024-10-01 00:00:00",
+            "closing": 37.88,
+            "opening": 38.47,
+            "lower": 37.59,
+            "higher": 38.7
+        },
+        {
+            "id": 6,
+            "createdAt": "2024-10-02 00:00:00",
+            "closing": 37.88,
+            "opening": 38.06,
+            "lower": 37.62,
+            "higher": 38.35
+        },
+        {
+            "id": 7,
+            "createdAt": "2024-10-03 00:00:00",
+            "closing": 36.89,
+            "opening": 37.67,
+            "lower": 36.7,
+            "higher": 37.67
+        },
+        {
+            "id": 8,
+            "createdAt": "2024-10-04 00:00:00",
+            "closing": 37.5,
+            "opening": 36.85,
+            "lower": 36.8,
+            "higher": 37.8
+        },
+        {
+            "id": 9,
+            "createdAt": "2024-10-07 00:00:00",
+            "closing": 37.85,
+            "opening": 37.74,
+            "lower": 37.23,
+            "higher": 37.96
+        },
+        {
+            "id": 10,
+            "createdAt": "2024-10-08 00:00:00",
+            "closing": 37.31,
+            "opening": 36.9,
+            "lower": 36.85,
+            "higher": 37.52
+        },
+        {
+            "id": 11,
+            "createdAt": "2024-10-09 00:00:00",
+            "closing": 37.71,
+            "opening": 37.26,
+            "lower": 37.13,
+            "higher": 37.76
+        },
+        {
+            "id": 12,
+            "createdAt": "2024-10-10 00:00:00",
+            "closing": 37.49,
+            "opening": 37.55,
+            "lower": 37.19,
+            "higher": 37.71
+        },
+        {
+            "id": 13,
+            "createdAt": "2024-10-11 00:00:00",
+            "closing": 37.85,
+            "opening": 37.31,
+            "lower": 37.1,
+            "higher": 37.94
+        },
+        {
+            "id": 14,
+            "createdAt": "2024-10-14 00:00:00",
+            "closing": 38.05,
+            "opening": 37.88,
+            "lower": 37.5,
+            "higher": 38.18
+        },
+        {
+            "id": 15,
+            "createdAt": "2024-10-15 00:00:00",
+            "closing": 37.27,
+            "opening": 38.08,
+            "lower": 37.18,
+            "higher": 38.08
+        },
+        {
+            "id": 16,
+            "createdAt": "2024-10-16 00:00:00",
+            "closing": 37,
+            "opening": 36.5,
+            "lower": 36.44,
+            "higher": 37.2
+        },
+        {
+            "id": 17,
+            "createdAt": "2024-10-17 00:00:00",
+            "closing": 37.9,
+            "opening": 37.17,
+            "lower": 37.15,
+            "higher": 38.28
+        },
+        {
+            "id": 18,
+            "createdAt": "2024-10-18 00:00:00",
+            "closing": 38.17,
+            "opening": 37.88,
+            "lower": 37.85,
+            "higher": 38.48
+        },
+        {
+            "id": 19,
+            "createdAt": "2024-10-21 00:00:00",
+            "closing": 37.4,
+            "opening": 37.9,
+            "lower": 37.33,
+            "higher": 38.17
+        },
+        {
+            "id": 20,
+            "createdAt": "2024-10-22 00:00:00",
+            "closing": 37.4,
+            "opening": 37.21,
+            "lower": 36.76,
+            "higher": 37.5
+        }
+    ]
+}

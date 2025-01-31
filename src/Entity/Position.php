@@ -12,34 +12,34 @@ use Symfony\Component\Serializer\Attribute\Groups;
 class Position
 {
     /**
-     * Déclaration d'une constante pour gérer la valeur d'une ligne
+     * Déclaration d'une constante pour gérer la valeur d'une ligne.
      *
-     * @var integer
+     * @var int
      */
     public const LINE_VALUE = 750;
 
     /**
-     * Déclaration du pourcentage de baisse fixant le niveau de Buy_limit
+     * Déclaration du pourcentage de baisse fixant le niveau de Buy_limit.
      *
-     * @var integer
+     * @var float
      */
     public const SPREAD = 0.06; // on fixe ici la limite à 6 % de baisse, le palier d'achat étant fixé à 2 % pout 3 lignes
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
-    #[Groups(["position_read"])]
+    #[Groups(['position_read'])]
     private ?int $id = null;
 
     #[ORM\Column]
-    #[Groups(["position_read"])]
+    #[Groups(['position_read'])]
     private ?float $buyTarget = null;
 
     #[ORM\Column(type: 'float', nullable: true)]
     private ?float $sellTarget = null;
 
     #[ORM\Column(type: Types::DATE_MUTABLE, nullable: true)]
-    #[Groups(["position_read"])]
+    #[Groups(['position_read'])]
     private ?\DateTimeInterface $buyDate = null;
 
     #[ORM\Column(type: Types::DATE_MUTABLE, nullable: true)]
@@ -58,19 +58,19 @@ class Position
     private ?bool $isRunning = null;
 
     #[ORM\ManyToOne(inversedBy: 'positions')]
-    #[Groups(["position_read"])]
+    #[Groups(['position_read'])]
     private ?LastHigh $buyLimit = null;
 
     #[ORM\Column(type: 'float', nullable: true)]
-    #[Groups(["position_read"])]
+    #[Groups(['position_read'])]
     private ?float $lvcBuyTarget = null;
 
     #[ORM\Column(type: 'float', nullable: true)]
-    #[Groups(["position_read"])]
+    #[Groups(['position_read'])]
     private ?float $lvcSellTarget = null;
 
     #[ORM\Column(type: 'integer', nullable: true)]
-    #[Groups(["position_read"])]
+    #[Groups(['position_read'])]
     private ?int $quantity = null;
 
     #[ORM\ManyToOne(inversedBy: 'positions')]

@@ -2,9 +2,16 @@
 
 namespace App\Services;
 
-use App\Entity\{Cac, LastHigh, Lvc, Position, User};
-use Psr\Log\LoggerInterface;
+use App\Entity\Cac;
+use App\Entity\LastHigh;
+use App\Entity\Lvc;
+use App\Entity\Position;
+use App\Entity\User;
+use App\Repository\CacRepository;
+use App\Repository\LastHighRepository;
+use App\Repository\PositionRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 
 class PositionHandler
@@ -32,10 +39,13 @@ class PositionHandler
     }
 
     /**
-     * Récupère la liste des entités cac à utiliser pour mettre à jour les positions de l'utilisateur courant
+     * Récupère la liste des entités cac à utiliser pour mettre à jour les positions de l'utilisateur courant.
+     *
+     * @return Cac[]
      */
     public function dataToCheck(): array
     {
+        /** @var CacRepository $cacRepository */
         $cacRepository = $this->entityManager->getRepository(Cac::class);
         $user = $this->getCurrentUser();
 
@@ -44,6 +54,8 @@ class PositionHandler
 
     /**
      * Actualise le plus haut local et les positions d'une liste de données Cac.
+     *
+     * @param Cac[] $cacData
      */
     public function updateCacData(array $cacData): void
     {
@@ -56,13 +68,13 @@ class PositionHandler
             $this->updateLastCac($cac);
 
             // Récupération du lvc contemporain au cac pour mise à jour des positions.
-            $lvcData = $lvcRepository->findOneBy(["createdAt" => $cac->getCreatedAt()]);
+            $lvcData = $lvcRepository->findOneBy(['createdAt' => $cac->getCreatedAt()]);
             if ($lvcData) {
                 $this->checkLvcData($lvcData);
             } else {
-                $date = $cac->getCreatedAt() !== null ? $cac->getCreatedAt()->format("D/M/Y") : null;
+                $date = $cac->getCreatedAt()?->format('D/M/Y');
                 $this->logger->error(
-                    sprintf("Pas de correspondance LVC pour le CAC fournit en date du %s", $date)
+                    sprintf('Pas de correspondance LVC pour le CAC fournit en date du %s', $date)
                 );
             }
         }
@@ -84,10 +96,10 @@ class PositionHandler
 
         // TODO : il faudra vérifier le taux d'engagement : si 1 ou 2, la nouvelle règle ci-dessous ne s'applique pas.
         // Si au moins une position en attente existe, on ne relève pas la buyLimit.
-//        $positions = $this->getPositionsOfCurrentUser('isWaiting');
-//        if (count($positions) > 0) {
-//            return;
-//        }
+        //        $positions = $this->getPositionsOfCurrentUser('isWaiting');
+        //        if (count($positions) > 0) {
+        //            return;
+        //        }
 
         // Si lastHigh a été dépassé, je l'actualise.
         if ($cac->getHigher() > $lastHighInDatabase->getHigher()) {
@@ -106,9 +118,8 @@ class PositionHandler
     /**
      * Méthode pour créer en BDD le nouveau plus haut de l'utilisateur courant.
      *
-     * @param Cac $cac l'objet cac qui a fait le plus haut
+     * @param Cac             $cac       l'objet cac qui a fait le plus haut
      * @param array<Position> $positions
-     * @return LastHigh
      */
     public function setHigher(Cac $cac, array $positions = []): LastHigh
     {
@@ -132,9 +143,8 @@ class PositionHandler
     /**
      * Méthode mettant à jour un plus haut existant en BDD.
      *
-     * @param Cac $cac l'objet cac qui a fait le nouveau plus haut
+     * @param Cac      $cac      l'objet cac qui a fait le nouveau plus haut
      * @param LastHigh $lastHigh représente le plus haut à actualiser
-     * @return void
      */
     public function updateHigher(Cac $cac, LastHigh $lastHigh): void
     {
@@ -148,7 +158,7 @@ class PositionHandler
             [
                 'userPosition' => $this->getCurrentUser(),
                 'isWaiting' => true,
-                'buyLimit' => $newLastHigh->getId()
+                'buyLimit' => $newLastHigh->getId(),
             ]
         );
         $this->setPositions($newLastHigh, $positions);
@@ -156,13 +166,10 @@ class PositionHandler
 
     /**
      * Affecte la buyLimit au nouveau plus haut.
-     *
-     * @param Cac $cac
-     * @param LastHigh|null $lastHigh
-     * @return LastHigh
      */
-    public function setBuyLimitToNewLastHigh(Cac $cac, LastHigh $lastHigh = null): LastHigh
+    public function setBuyLimitToNewLastHigh(Cac $cac, ?LastHigh $lastHigh = null): LastHigh
     {
+        /** @var LastHighRepository $lastHighRepository */
         $lastHighRepository = $this->entityManager->getRepository(LastHigh::class);
 
         // Je récupère le plus haut de l'objet Cac transmis en paramètre.
@@ -178,11 +185,11 @@ class PositionHandler
 
         // À partir de l'entité Cac, je récupère l'objet LVC contemporain.
         $lvcRepository = $this->entityManager->getRepository(Lvc::class);
-        $lvc = $lvcRepository->findOneBy(["createdAt" => $cac->getCreatedAt()]);
+        $lvc = $lvcRepository->findOneBy(['createdAt' => $cac->getCreatedAt()]);
         if (!$lvc) {
-            $date = $cac->getCreatedAt()?->format("D/M/Y");
-            $this->logger->error(sprintf("Pas de correspondance LVC pour le CAC fournit en date du %s", $date));
-            throw new \RuntimeException("Aucune correspondance LVC trouvée pour le CAC.");
+            $date = $cac->getCreatedAt()?->format('D/M/Y');
+            $this->logger->error(sprintf('Pas de correspondance LVC pour le CAC fournit en date du %s', $date));
+            throw new \RuntimeException('Aucune correspondance LVC trouvée pour le CAC.');
         }
         $lvcHigher = $lvc->getHigher();
 
@@ -202,20 +209,22 @@ class PositionHandler
 
     /**
      * Met à jour les positions en attente d'un utilisateur dont la buyLimit n'a pas été touchée.
+     *
+     * @param Position[] $positions
      */
     public function setPositions(LastHigh $lastHigh, array $positions = []): void
     {
         // Si le tableau des positions est vide, on crée 3 nouvelles positions
-        if (count($positions) === 0) {
-            $positions = array_map(static fn() => new Position(), range(1, 3));
+        if (0 === count($positions)) {
+            $positions = array_map(static fn () => new Position(), range(1, 3));
         }
 
         /* Si la taille du tableau n'est pas égal à 3, c'est qu'une position du cycle d'achat
         a été passée en isRunning : les positions isWaiting de la même buyLimit sont alors gelées. */
-        if (count($positions) !== 3) {
+        if (3 !== count($positions)) {
             $this->logger->info(sprintf(
                 'Pas de mise à jour des positions. '
-                    . 'Au moins une position isRunning existe avec une buyLimit = %s',
+                    .'Au moins une position isRunning existe avec une buyLimit = %s',
                 $lastHigh->getBuyLimit())
             );
 
@@ -236,7 +245,7 @@ class PositionHandler
         // Je fixe les % d'écart entre les lignes pour le cac et pour le lvc (qui a un levier x2).
         $delta = [
             'cac' => [0, 2, 4],
-            'lvc' => [0, 4, 8]
+            'lvc' => [0, 4, 8],
         ];
 
         $position->setBuyLimit($lastHigh);
@@ -253,7 +262,7 @@ class PositionHandler
         // Positions prises à 0, -4 et -8 %.
         $positionDeltaLvc = $lvcBuyLimit - ($lvcBuyLimit * $delta['lvc'][$key] / 100);
         $position->setLvcBuyTarget(round($positionDeltaLvc, 2));
-        $position->setQuantity((int)round(Position::LINE_VALUE / $positionDeltaLvc));
+        $position->setQuantity((int) round(Position::LINE_VALUE / $positionDeltaLvc));
 
         // Revente d'une position à +20 %.
         $position->setLvcSellTarget(round($positionDeltaLvc * 1.2, 2));
@@ -272,14 +281,10 @@ class PositionHandler
         $this->updateIsRunningPositions($lvc);
     }
 
-    /**
-     * @param Lvc $lvc
-     * @return void
-     */
     public function updateIsWaitingPositions(Lvc $lvc): void
     {
         // Récupère les positions isWaiting de l'utilisateur.
-        $positions = $this->getPositionsOfCurrentUser("isWaiting");
+        $positions = $this->getPositionsOfCurrentUser('isWaiting');
 
         // Pour chacune des positions en cours, je vérifie si lvc.lower < position.lvcBuyTarget.
         foreach ($positions as $position) {
@@ -294,10 +299,10 @@ class PositionHandler
                             ['createdAt' => $lvc->getCreatedAt()]
                         );
                     if (!$cac) {
-                        $date = $lvc->getCreatedAt()?->format("D/M/Y");
-                        $message = "Impossible de récupérer le CAC correspondant au LVC en date du %s";
+                        $date = $lvc->getCreatedAt()?->format('D/M/Y');
+                        $message = 'Impossible de récupérer le CAC correspondant au LVC en date du %s';
                         $this->logger->error(sprintf($message, $date));
-                        throw new \RuntimeException("Impossible de récupérer le CAC correspondant au LVC.");
+                        throw new \RuntimeException('Impossible de récupérer le CAC correspondant au LVC.');
                     }
                     // On récupère toutes les positions en attente qui ont un point haut différent
                     $isWaitingPositions = $this->getIsWaitingPositions($position);
@@ -312,17 +317,13 @@ class PositionHandler
         }
     }
 
-    /**
-     * @param Lvc $lvc
-     * @return void
-     */
     public function updateIsRunningPositions(Lvc $lvc): void
     {
         // TODO : il reste à traiter le solde des positions clôturées pour l'afficher sur le dashboard
         // Récupère les positions isRunning de l'utilisateur.
-        $positions = $this->getPositionsOfCurrentUser("isRunning");
+        $positions = $this->getPositionsOfCurrentUser('isRunning');
 
-        // Pour chacune des positions en cours, je vérifie si lvc.higher > position.sellTarget.
+        // Pour chacune des positions en cours, je vérifie si lvc.higher > position.lvcSellTarget.
         foreach ($positions as $position) {
             if ($lvc->getHigher() > $position->getLvcSellTarget()) {
                 // On passe le statut de la position à isClosed.
@@ -333,7 +334,9 @@ class PositionHandler
 
     /**
      * Retourne les positions en attente liées à l'utilisateur identifié.
+     *
      * @param $status L'état de la position (isWaiting, isRunning ou isClosed)
+     *
      * @return array<Position>
      */
     private function getPositionsOfCurrentUser(string $status): array
@@ -349,9 +352,6 @@ class PositionHandler
 
     /**
      * Change le statut d'une position dont la limite d'achat est atteinte.
-     * @param Lvc $lvc
-     * @param Position $position
-     * @return void
      */
     public function openPosition(Lvc $lvc, Position $position): void
     {
@@ -391,24 +391,33 @@ class PositionHandler
         $positions = $this->entityManager->getRepository(Position::class)
             ->findBy(
                 [
-                    "isRunning" => true,
-                    "buyLimit" => $position->getBuyLimit()
+                    'isRunning' => true,
+                    'buyLimit' => $position->getBuyLimit(),
                 ]
             );
 
-        return count($positions) === 1;
+        return 1 === count($positions);
     }
 
     /**
      * Retourne les positions 'isWaiting' dont la buyLimit_id est différente de celle de la position courante.
+     *
+     * @return Position[]|null
      */
     public function getIsWaitingPositions(Position $position): ?array
     {
-        return $this->entityManager->getRepository(Position::class)->getIsWaitingPositionsByBuyLimitID($position);
+        /** @var PositionRepository $positionRepository */
+        $positionRepository = $this->entityManager->getRepository(Position::class);
+
+        return $positionRepository->getIsWaitingPositionsByBuyLimitID($position);
     }
 
     /**
      * Récupère les positions d'une même buyLimit lorsqu'elles sont au nombre de trois.
+     *
+     * @param Position[] $positions
+     *
+     * @return Position[]|null
      */
     public function checkIsWaitingPositions(array $positions): ?array
     {
@@ -428,7 +437,7 @@ class PositionHandler
 
         // On supprime les positions si elles ne sont pas au nombre de trois pour une même limite d'achat.
         foreach ($results as $buyLimit => $items) {
-            if (count($items) !== 3) {
+            if (3 !== count($items)) {
                 foreach ($items as $position) {
                     $this->entityManager->remove($position);
                 }
@@ -443,23 +452,25 @@ class PositionHandler
 
     /**
      * Récupère les positions en attente liées à un lastHigh de l'utilisateur connecté.
+     *
+     * @return Position[]
      */
     public function getIsWaitingPositionsByLashHighId(int $userId, int $lastHighId): array
     {
         return $this->entityManager->getRepository(Position::class)
             ->findBy(
                 [
-                    "User" => $userId,
-                    "isWaiting" => true,
-                    "buyLimit" => $lastHighId
+                    'userPosition' => $userId,
+                    'isWaiting' => true,
+                    'buyLimit' => $lastHighId,
                 ]
             );
     }
 
     /**
      * Suppression d'une liste de positions.
+     *
      * @param array<Position> $positions
-     * @return void
      */
     public function removeIsWaitingPositions(array $positions): void
     {

@@ -14,7 +14,7 @@ class LastHigh
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
-    #[Groups(["position_read"])]
+    #[Groups(['position_read'])]
     private ?int $id = null;
 
     /**
@@ -27,7 +27,7 @@ class LastHigh
     private ?float $higher = null;
 
     #[ORM\Column]
-    #[Groups(["position_read"])]
+    #[Groups(['position_read'])]
     private ?float $buyLimit = null;
 
     #[ORM\Column]
@@ -37,7 +37,7 @@ class LastHigh
     private ?float $lvcBuyLimit = null;
 
     #[ORM\ManyToOne(inversedBy: 'lastHigher')]
-    #[Groups(["position_read"])]
+    #[Groups(['position_read'])]
     private ?Cac $dailyCac = null;
 
     #[ORM\ManyToOne(inversedBy: 'lastHigher')]
