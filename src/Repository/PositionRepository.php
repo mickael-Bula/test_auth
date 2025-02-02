@@ -47,8 +47,10 @@ class PositionRepository extends ServiceEntityRepository
 
     /**
      * Calcule le PRU et le formate avec deux décimales.
+     *
+     * @return array{total: int, pru: string}
      */
-    public function getPriceEarningRatio(int $userId, string $status): float
+    public function getPriceEarningRatio(int $userId, string $status): array
     {
         // Vérifie la présence du champ pour éviter les injections ou les erreurs
         if (!in_array($status, ['isRunning', 'isWaiting'], true)) {

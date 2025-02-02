@@ -218,3 +218,24 @@ si un nouveau cycle d'achat est initié,
 les positions en attente du cycle précédent doivent être annulées (issue #4).
 
 Lors de l'enregistrement d'un utilisateur, il faut saisir un montant initial (issue #5).
+
+Il faut ajouter la valeur de revente LVC pour les positions en cours et en attente.
+
+Il faut ajouter un bouton pour éditer chacune des lignes dans les tableaux des positions en cours et en attente.
+
+Au clic sur les boutons d'édition, ouvrir une modale contenant un formulaire pour l'édition.
+
+Les champs du formulaire :
+- buy_limit
+- delta (6 % par défaut)
+- case à cocher pour propager les modifications aux autres positions du trade concerné.
+- modifier la date ?
+
+Ajouter un bouton pour éditer le tableau d'inventaire
+
+Lors d'un ordre d'achat en attente, calculer le ratio d'engagement des positions par rapport au total investi :
+- si ratio > 75 % : toute la ligne doit être soldée ET faire retomber le taux d'engagement sous 75 %
+- si ratio > 50 % : toute la ligne doit être soldée
+- si ratio > 25 % : seul le capital engagé doit être récupéré (donc K / prix de vente = nombre de LVC revendus)
+- sinon, pas de limite de revente (on conserve).
+**NOTE** : on n'ajoute pas de champ en BDD pour spécifier la phase : elle sera calculée dynamiquement.
