@@ -40,6 +40,8 @@ class CacRepository extends ServiceEntityRepository
 
     /**
      * Récupère toutes les entités cac qui ont une date supérieure à celle de $lastCacUpdated, triées par ancienneté.
+     *
+     * @return Cac[]
      */
     public function getDataToUpdateFromUser(Cac $lastCacUpdated): array
     {

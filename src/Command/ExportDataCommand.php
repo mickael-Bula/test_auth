@@ -64,8 +64,6 @@ class ExportDataCommand extends Command
             ];
         }, $data);
 
-
-
         // Organise les données dans un tableau global
         $data = [
             'cacData' => $cacData,

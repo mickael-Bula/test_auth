@@ -2,58 +2,47 @@
 
 namespace App\Controller;
 
-use App\Entity\Cac;
 use App\Entity\User;
-use App\Entity\Position;
-use App\Services\PositionHandler;
+use App\Repository\CacRepository;
+use App\Repository\PositionRepository;
 use App\Services\LastHighHandler;
+use App\Services\PositionHandler;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 
 class ApiController extends AbstractController
 {
-    private EntityManagerInterface $entityManager;
-    private PositionHandler $positionHandler;
-    private LastHighHandler $lastHighHandler;
-
     public function __construct(
-        EntityManagerInterface $entityManager,
-        PositionHandler        $positionHandler,
-        LastHighHandler       $lastHighHandler
-    )
-    {
-        $this->entityManager = $entityManager;
-        $this->positionHandler = $positionHandler;
-        $this->lastHighHandler = $lastHighHandler;
+        private readonly EntityManagerInterface $entityManager,
+        private readonly PositionRepository $positionRepository,
+        private readonly CacRepository $cacRepository,
+        private readonly PositionHandler $positionHandler,
+        private readonly LastHighHandler $lastHighHandler,
+    ) {
     }
 
     /**
-     * Retourne les 10 dernières cotations du Cac et les derniers cours de clôture du Lvc
-     *
-     * @return JsonResponse
+     * Retourne les 10 dernières cotations du Cac et les derniers cours de clôture du Lvc.
      */
     #[Route('/api/stocks/dashboard', methods: ['GET'])]
     public function getDashboardData(): JsonResponse
     {
-        $data = $this->entityManager->getRepository(Cac::class)->getCacAndLvcData();
+        $data = $this->cacRepository->getCacAndLvcData();
 
         return $this->json($data);
     }
 
     /**
      * Retourne le plus haut et la limite d'achat de l'utilisateur courant.
-     *
-     * @return JsonResponse
      */
     #[Route('api/stocks/dashboard/positions', methods: ['GET'])]
     public function getUserPositions(): JsonResponse
     {
         /** @var User $user */
         $user = $this->getUser();
-        $positionRepository = $this->entityManager->getRepository(Position::class);
 
         // Si aucun plus haut n'est affecté à l'utilisateur, on le crée
         if (is_null($user->getHigher())) {
@@ -64,8 +53,8 @@ class ApiController extends AbstractController
         $cacList = $this->positionHandler->dataToCheck();
         $this->positionHandler->updateCacData($cacList);
 
-        $runningPRU = $positionRepository->getPriceEarningRatio($user->getId(), 'isRunning');
-        $waitingPRU = $positionRepository->getPriceEarningRatio($user->getId(), 'isWaiting');
+        $runningPRU = $this->positionRepository->getPriceEarningRatio($user->getId(), 'isRunning');
+        $waitingPRU = $this->positionRepository->getPriceEarningRatio($user->getId(), 'isWaiting');
 
         // On récupère les données pour le calcul du portefeuille de l'utilisateur.
         $wallet = [
@@ -77,7 +66,7 @@ class ApiController extends AbstractController
         $lastHigher = $lastHigh?->getHigher();
         $dateOfLastHigher = $lastHigh?->getDailyCac()?->getCreatedAt()?->format('Y-m-d\TH:i:s\Z');
         $buyLimit = $lastHigh?->getBuyLimit();
-        [$waitingPositions, $runningPositions, $closedPositions] = $positionRepository->getUserPositions(
+        [$waitingPositions, $runningPositions, $closedPositions] = $this->positionRepository->getUserPositions(
             $user->getId()
         );
 

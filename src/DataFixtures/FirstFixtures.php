@@ -24,7 +24,7 @@ class FirstFixtures extends Fixture
         // Crée un utilisateur
         $user = new User();
         $user->setUsername('testUser');
-        $user->setRoles(["ROLE_USER"]);
+        $user->setRoles(['ROLE_USER']);
         $user->setPassword('testPassword');
         $manager->persist($user);
 
@@ -51,9 +51,7 @@ class FirstFixtures extends Fixture
             $lvc->setLower($lvcData['lower']);
             $manager->persist($lvc);
         }
-
         // Enregistre les données en base de test
         $manager->flush();
-        $manager->getConnection()->commit();
     }
 }

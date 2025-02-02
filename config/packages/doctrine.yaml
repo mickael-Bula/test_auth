@@ -8,6 +8,13 @@ doctrine:
 
         profiling_collect_backtrace: '%kernel.debug%'
         use_savepoints: true
+
+        # Configure la plateforme PostgreSQL
+        driver: 'pdo_pgsql'
+        driver_class: 'Doctrine\DBAL\Driver\PDO\PgSQL\Driver'
+        # Définit la plateforme spécifique à PostgreSQL
+        options:
+            1002: 'Doctrine\DBAL\Platforms\PostgreSQLPlatform'
     orm:
         auto_generate_proxy_classes: true
         enable_lazy_ghost_objects: true

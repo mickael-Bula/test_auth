@@ -17,21 +17,22 @@ class PositionRepository extends ServiceEntityRepository
     }
 
     /**
-     * @param $user
-     * @return array
+     * @return Position[][]
      */
-    public function getUserPositions($user): array
+    public function getUserPositions(int $userId): array
     {
         $result = [];
         foreach (['isWaiting', 'isRunning', 'isClosed'] as $status) {
-            $result[] = $this->findBy(["userPosition" => $user, $status => true]);
+            $result[] = $this->findBy(['userPosition' => $userId, $status => true]);
         }
 
         return $result;
     }
 
     /**
-     * Récupère les positions en attente qui ont une buyLimit différente de celle de la position courante
+     * Récupère les positions en attente qui ont une buyLimit différente de celle de la position courante.
+     *
+     * @return Position[]|null
      */
     public function getIsWaitingPositionsByBuyLimitID(Position $position): ?array
     {
@@ -46,18 +47,20 @@ class PositionRepository extends ServiceEntityRepository
 
     /**
      * Calcule le PRU et le formate avec deux décimales.
+     *
+     * @return array{total: int, pru: string}
      */
-    public function getPriceEarningRatio(int $userId, string $status)
+    public function getPriceEarningRatio(int $userId, string $status): array
     {
         // Vérifie la présence du champ pour éviter les injections ou les erreurs
         if (!in_array($status, ['isRunning', 'isWaiting'], true)) {
-            throw new \InvalidArgumentException('Champ `status` invalide : ' . $status);
+            throw new \InvalidArgumentException('Champ `status` invalide : '.$status);
         }
 
         $result = $this->createQueryBuilder('p')
             ->select('SUM(p.quantity) AS total', 'SUM(p.lvcBuyTarget) / COUNT(p.quantity) AS pru')
             ->where('p.userPosition = :user')
-            ->andWhere('p.' . $status . ' = true')
+            ->andWhere('p.'.$status.' = true')
             ->setParameter('user', $userId)
             ->getQuery()
             ->getSingleResult();

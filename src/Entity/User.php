@@ -191,7 +191,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      */
     public function setAmount(?float $amount): self
     {
-        $this->amount = $amount !== null ? round($amount, 2) : null;
+        $this->amount = null !== $amount ? round($amount, 2) : null;
 
         return $this;
     }

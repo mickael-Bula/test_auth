@@ -3,12 +3,13 @@
 namespace App\Services;
 
 use App\Entity\Cac;
-use App\Entity\Lvc;
-use App\Entity\User;
 use App\Entity\LastHigh;
+use App\Entity\Lvc;
 use App\Entity\Position;
-use Psr\Log\LoggerInterface;
+use App\Entity\User;
+use App\Repository\LastHighRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 
 class LastHighHandler
 {
@@ -18,10 +19,9 @@ class LastHighHandler
 
     public function __construct(
         EntityManagerInterface $entityManager,
-        PositionHandler        $positionHandler,
-        LoggerInterface        $myAppLogger
-    )
-    {
+        PositionHandler $positionHandler,
+        LoggerInterface $myAppLogger,
+    ) {
         $this->entityManager = $entityManager;
         $this->positionHandler = $positionHandler;
         $this->logger = $myAppLogger;
@@ -34,9 +34,13 @@ class LastHighHandler
 
         $lastHighEntity = $this->setNewUserLastCacHigher($cac);
 
+        if (null === $cac) {
+            throw new \RuntimeException(sprintf('La valeur de Cac vaut %s', $cac));
+        }
         $lastHighEntity = $this->setNewUserLastLvcHigher($lastHighEntity, $cac);
 
         // Je persiste les données pour créer l'id du lashHigh avant de l'assigner à l'utilisateur.
+        /** @var LastHighRepository $lastHighRepository */
         $lastHighRepository = $this->entityManager->getRepository(LastHigh::class);
         $lastHighRepository->add($lastHighEntity, true);
         $user->setHigher($lastHighEntity);
@@ -64,14 +68,14 @@ class LastHighHandler
         return $lastHighEntity;
     }
 
-    public function setNewUserLastLvcHigher(LastHigh $lastHighEntity, ?Cac $cac): LastHigh
+    public function setNewUserLastLvcHigher(LastHigh $lastHighEntity, Cac $cac): LastHigh
     {
         // à partir de l'entité Cac, je récupère l'objet LVC contemporain
         $lvcRepository = $this->entityManager->getRepository(Lvc::class);
-        $lvc = $lvcRepository->findOneBy(["createdAt" => $cac?->getCreatedAt()]);
+        $lvc = $lvcRepository->findOneBy(['createdAt' => $cac->getCreatedAt()]);
         if (!$lvc) {
-            $date = $cac?->getCreatedAt() !== null ? $cac?->getCreatedAt()?->format("D/M/Y") : null;
-            $this->logger->error(sprintf("Pas de LVC correspondant au CAC fournit en date du %s", $date));
+            $date = $cac->getCreatedAt()?->format('D/M/Y');
+            $this->logger->error(sprintf('Pas de LVC correspondant au CAC fournit en date du %s', $date));
         }
         $lvcHigher = $lvc->getHigher();
 

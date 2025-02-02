@@ -1,0 +1,23 @@
+parameters:
+    git_dir: .
+    bin_dir: vendor/bin
+    tasks:
+        phpcsfixer:
+            config: .php-cs-fixer.dist.php
+        phpunit:
+            config_file: phpunit.xml.dist
+            testsuite: service  # Exécute uniquement les tests Service
+        phpstan:
+            configuration: phpstan.neon
+            level: 6
+            triggered_by: [ 'php' ]
+        yamllint:
+            exception_on_invalid_type: false
+            ignore_patterns:
+                - vendor/*
+            object_support: true
+            parse_constant: true
+            parse_custom_tags: true
+            whitelist_patterns:
+                - "*.yaml"
+                - "*.yml"
