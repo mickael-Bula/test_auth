@@ -36,6 +36,7 @@ class Position
     private ?float $buyTarget = null;
 
     #[ORM\Column(type: 'float', nullable: true)]
+    #[Groups(['position_read'])]
     private ?float $sellTarget = null;
 
     #[ORM\Column(type: Types::DATE_MUTABLE, nullable: true)]
