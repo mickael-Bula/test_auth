@@ -23,13 +23,14 @@ class PositionHandlerTest extends TestCase
 
         // Création de l'instance de PositionHandler en passant les mocks et en forçant le retour de getCurrentUser
         $positionHandler = $this->getMockBuilder(PositionHandler::class)
-            ->onlyMethods(['getCurrentUser'])
+            ->onlyMethods(['getCurrentUser', 'investmentRatio'])
             ->setConstructorArgs([$entityManagerMock, $securityMock, $loggerMock])
             ->getMock();
 
-        // Configurer le mock de l'utilisateur courant
+        // Configure le mock de l'utilisateur courant
         $userMock = $this->createMock(User::class);
         $positionHandler->method('getCurrentUser')->willReturn($userMock);
+        $positionHandler->method('investmentRatio')->willReturn(25.0);
 
         // Création des mocks pour les entités LastHigh et Position
         $lastHighMock = $this->createMock(LastHigh::class);
@@ -41,7 +42,7 @@ class PositionHandlerTest extends TestCase
 
         $positionMock = $this->createMock(Position::class);
 
-        // Définir les expectations sur le mock de Position avant d'appeler setPosition
+        // Définit les expectations sur le mock de Position avant d'appeler setPosition
         $positionMock->expects($this->once())
             ->method('setBuyLimit')
             ->with($lastHighMock);
@@ -72,7 +73,7 @@ class PositionHandlerTest extends TestCase
             ->method('persist')
             ->with($positionMock);
 
-        // Définir la clé pour les delta
+        // Définit la clé pour les delta
         $key = 0;
 
         // Appel de la méthode à tester

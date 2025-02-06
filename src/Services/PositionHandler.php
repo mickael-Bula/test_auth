@@ -10,6 +10,7 @@ use App\Entity\User;
 use App\Repository\CacRepository;
 use App\Repository\LastHighRepository;
 use App\Repository\PositionRepository;
+use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -93,13 +94,6 @@ class PositionHandler
         if (is_null($lastHighInDatabase)) {
             $lastHighInDatabase = $this->setHigher($cac);
         }
-
-        // TODO : il faudra vérifier le taux d'engagement : si 1 ou 2, la nouvelle règle ci-dessous ne s'applique pas.
-        // Si au moins une position en attente existe, on ne relève pas la buyLimit.
-        //        $positions = $this->getPositionsOfCurrentUser('isWaiting');
-        //        if (count($positions) > 0) {
-        //            return;
-        //        }
 
         // Si lastHigh a été dépassé, je l'actualise.
         if ($cac->getHigher() > $lastHighInDatabase->getHigher()) {
@@ -264,6 +258,39 @@ class PositionHandler
         $position->setLvcBuyTarget(round($positionDeltaLvc, 2));
         $position->setQuantity((int) round(Position::LINE_VALUE / $positionDeltaLvc));
 
+        /** Vérifier dans quelle tranche du capital se situe l'achat.
+         * Il faut récupérer le capital total (amount + plus-values potentielles).
+         *  Calcul de la plus-value : PRU d'achat - prix de vente * qté LVC
+         * Il faut calculer le ratio entre le capital total et la somme des positions en cours * last LVC
+         * Si l'achat est compris dans la tranche > 75%, on solde a minima le trade, complété au besoin du K > 75%.
+         * Si > 50%, on solde la position.
+         * Si > 25%, on solde le K engagé par la position.
+         * Sinon, on conserve.
+         */
+
+        // Calcule le ratio d'investissement
+        $ratio = $this->investmentRatio();
+
+        // TODO : spécifier les niveaux et les quantités à revendre en fonction du ratio.
+        // Calcule le niveau de revente éventuelle
+        switch ($ratio) {
+            case $ratio > 75:
+                $revente = round($positionDeltaLvc * 1.2, 2);
+                $quantity = $position->getQuantity() + 10;
+                break;
+            case $ratio > 50:
+                $revente = round($positionDeltaLvc * 1.2, 2);
+                $quantity = $position->getQuantity();
+                break;
+            case $ratio > 25:
+                $revente = round($positionDeltaLvc * 1.2, 2);
+                $quantity = $position->getQuantity() - 10;
+                break;
+            default:
+                $revente = null;
+                $quantity = null;
+        }
+
         // Revente d'une position à +20 %.
         $position->setLvcSellTarget(round($positionDeltaLvc * 1.2, 2));
 
@@ -328,8 +355,55 @@ class PositionHandler
             if ($lvc->getHigher() > $position->getLvcSellTarget()) {
                 // On passe le statut de la position à isClosed.
                 $this->closePosition($lvc, $position);
+
+                // On met à jour le capital de l'utilisateur
+                $this->addSellResultToCapital($position);
             }
         }
+    }
+
+    /**
+     * Ajoute le résultat d'une vente au capital de l'utilisateur courant.
+     */
+    public function addSellResultToCapital(Position $position): ?float
+    {
+        /** @var UserRepository $userRepository */
+        $userRepository = $this->entityManager->getRepository(User::class);
+
+        $user = $userRepository->findOneBy(['id' => $this->getCurrentUser()]);
+
+        if (!$user) {
+            echo 'Utilisateur introuvable.';
+
+            return null;
+        }
+
+        // Ajoute au capital le résultat de la +/- value.
+        $capital = $user->getAmount() ?: 0;
+        $capital += ($position->getLvcSellTarget() - $position->getLvcBuyTarget()) * $position->getQuantity();
+
+        // Mise à jour du capital de l'utilisateur
+        $capital = round($capital, 2);
+        $user->setAmount($capital);
+        $this->entityManager->persist($user);
+        $this->entityManager->flush();
+
+        return $capital;
+    }
+
+    public function investmentRatio(): float
+    {
+        /** @var PositionRepository $positionRepository */
+        $positionRepository = $this->entityManager->getRepository(Position::class);
+
+        // Récupère les plus-values potentielles
+        $latentGainOrLoss = $positionRepository->getLatentGainOrLoss();
+
+        // Récupère le capital
+        $capital = $this->getCurrentUser()->getAmount() ?: 0;
+        $capital += $latentGainOrLoss;
+
+        return 0 !== $capital ? round($latentGainOrLoss * 100 / $capital, 2) : $latentGainOrLoss;
     }
 
     /**

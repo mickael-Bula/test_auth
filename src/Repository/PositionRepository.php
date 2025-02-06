@@ -58,7 +58,7 @@ class PositionRepository extends ServiceEntityRepository
         }
 
         $result = $this->createQueryBuilder('p')
-            ->select('SUM(p.quantity) AS total', 'SUM(p.lvcBuyTarget) / COUNT(p.quantity) AS pru')
+            ->select('SUM(p.quantity) AS total', 'SUM(p.lvcBuyTarget * p.quantity) / SUM(p.quantity) AS pru')
             ->where('p.userPosition = :user')
             ->andWhere('p.'.$status.' = true')
             ->setParameter('user', $userId)
@@ -69,5 +69,22 @@ class PositionRepository extends ServiceEntityRepository
         $result['pru'] = number_format((float) $result['pru'], 2);
 
         return $result;
+    }
+
+    public function getLatentGainOrLoss(): mixed
+    {
+        // Sous-requête
+        $subQueryBuilder = $this->createQueryBuilder('p')
+            ->select('(p.lvcSellTarget - p.lvcBuyTarget) * p.quantity AS tradeResult')
+            ->from(Position::class, 'p')
+            ->where('p.isRunning = :isRunning')
+            ->setParameter('isRunning', true);
+
+        // Requête principale
+        $queryBuilder = $this->createQueryBuilder('p')
+            ->select('SUM(subQuery.tradeResult)')
+            ->from('('.$subQueryBuilder->getQuery()->getDql().')'/* @type Position */, 'subQuery');
+
+        return $queryBuilder->getQuery()->getSingleScalarResult();
     }
 }
