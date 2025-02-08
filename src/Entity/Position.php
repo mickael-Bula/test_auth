@@ -74,6 +74,10 @@ class Position
     #[Groups(['position_read'])]
     private ?int $quantity = null;
 
+    #[ORM\Column(nullable: true)]
+    #[Groups(['position_read'])]
+    private ?int $quantityToSell = null;
+
     #[ORM\ManyToOne(inversedBy: 'positions')]
     private ?User $userPosition = null;
 
@@ -246,6 +250,18 @@ class Position
     public function setUserPosition(?User $userPosition): static
     {
         $this->userPosition = $userPosition;
+
+        return $this;
+    }
+
+    public function getQuantityToSell(): ?int
+    {
+        return $this->quantityToSell;
+    }
+
+    public function setQuantityToSell(?int $quantityToSell): static
+    {
+        $this->quantityToSell = $quantityToSell;
 
         return $this;
     }

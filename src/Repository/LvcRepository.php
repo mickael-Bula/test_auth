@@ -3,6 +3,7 @@
 namespace App\Repository;
 
 use App\Entity\Lvc;
+use App\Entity\Position;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -16,28 +17,33 @@ class LvcRepository extends ServiceEntityRepository
         parent::__construct($registry, Lvc::class);
     }
 
-    //    /**
-    //     * @return Lvc[] Returns an array of Lvc objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('l')
-    //            ->andWhere('l.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('l.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
+    /**
+     * Calcule la valorisation des LVC en cours.
+     */
+    public function getLvcClosingAndTotalQuantity(): float|int
+    {
+        $qb = $this->createQueryBuilder('l');
 
-    //    public function findOneBySomeField($value): ?Lvc
-    //    {
-    //        return $this->createQueryBuilder('l')
-    //            ->andWhere('l.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+        // Sous-requête pour récupérer le dernier ID
+        $subQbMaxId = $this->createQueryBuilder('l');
+        $subQbMaxId->select('MAX(lvc2.id)')
+            ->from(Lvc::class, 'lvc2');
+
+        // Requête principale
+        $lvcClosing = $qb->select('lvc.closing')
+            ->from(Lvc::class, 'lvc')
+            ->where($qb->expr()->eq('lvc.id', $subQbMaxId->getDQL()))
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        // Sous-requête pour la quantité totale
+        $subQbTotalQuantity = $this->createQueryBuilder('p');
+        $subQbTotalQuantity->select('SUM(p.quantity)')
+            ->from(Position::class, 'p')
+            ->where('p.is_running = true');
+
+        $totalQuantity = $subQbTotalQuantity->getQuery()->getSingleScalarResult();
+
+        return round($lvcClosing * $totalQuantity, 2);
+    }
 }

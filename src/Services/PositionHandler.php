@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Entity\Cac;
@@ -9,6 +11,7 @@ use App\Entity\Position;
 use App\Entity\User;
 use App\Repository\CacRepository;
 use App\Repository\LastHighRepository;
+use App\Repository\LvcRepository;
 use App\Repository\PositionRepository;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -21,11 +24,18 @@ class PositionHandler
     private Security $security;
     private LoggerInterface $logger;
 
-    public function __construct(EntityManagerInterface $entityManager, Security $security, LoggerInterface $logger)
-    {
+    private LvcRepository $lvcRepository;
+
+    public function __construct(
+        EntityManagerInterface $entityManager,
+        Security $security,
+        LoggerInterface $logger,
+        LvcRepository $lvcRepository,
+    ) {
         $this->entityManager = $entityManager;
         $this->security = $security;
         $this->logger = $logger;
+        $this->lvcRepository = $lvcRepository;
     }
 
     /**
@@ -258,41 +268,21 @@ class PositionHandler
         $position->setLvcBuyTarget(round($positionDeltaLvc, 2));
         $position->setQuantity((int) round(Position::LINE_VALUE / $positionDeltaLvc));
 
-        /** Vérifier dans quelle tranche du capital se situe l'achat.
-         * Il faut récupérer le capital total (amount + plus-values potentielles).
-         *  Calcul de la plus-value : PRU d'achat - prix de vente * qté LVC
-         * Il faut calculer le ratio entre le capital total et la somme des positions en cours * last LVC
-         * Si l'achat est compris dans la tranche > 75%, on solde a minima le trade, complété au besoin du K > 75%.
-         * Si > 50%, on solde la position.
-         * Si > 25%, on solde le K engagé par la position.
-         * Sinon, on conserve.
-         */
+        // Définit la cible de revente
+        $sellTarget = round($positionDeltaLvc * 1.2, 2);
 
         // Calcule le ratio d'investissement
         $ratio = $this->investmentRatio();
 
-        // TODO : spécifier les niveaux et les quantités à revendre en fonction du ratio.
-        // Calcule le niveau de revente éventuelle
-        switch ($ratio) {
-            case $ratio > 75:
-                $revente = round($positionDeltaLvc * 1.2, 2);
-                $quantity = $position->getQuantity() + 10;
-                break;
-            case $ratio > 50:
-                $revente = round($positionDeltaLvc * 1.2, 2);
-                $quantity = $position->getQuantity();
-                break;
-            case $ratio > 25:
-                $revente = round($positionDeltaLvc * 1.2, 2);
-                $quantity = $position->getQuantity() - 10;
-                break;
-            default:
-                $revente = null;
-                $quantity = null;
-        }
+        $sellQuantity = $this->getSellQuantity($ratio, $position, $sellTarget);
 
-        // Revente d'une position à +20 %.
-        $position->setLvcSellTarget(round($positionDeltaLvc * 1.2, 2));
+        $sellTarget = $sellQuantity ? $sellTarget : null; // Si $sellQuantity est null, $sellTarget le sera aussi
+
+        // Revente d'une position à +20 % si sellTarget est différent de null.
+        if ($sellTarget) {
+            $position->setLvcSellTarget(round($sellTarget));
+            $position->setQuantityToSell($sellQuantity);
+        }
 
         $this->entityManager->persist($position);
 
@@ -321,10 +311,10 @@ class PositionHandler
                 // Si la position mise à jour est la première de sa série...
                 if ($this->checkIsFirst($position)) {
                     // ...on récupère le nouveau point haut en passant le cac contemporain du lvc courant.
-                    $cac = $this->entityManager->getRepository(Cac::class)
-                        ->findOneBy(
-                            ['createdAt' => $lvc->getCreatedAt()]
-                        );
+                    $cac = $this->entityManager
+                        ->getRepository(Cac::class)
+                        ->findOneBy(['createdAt' => $lvc->getCreatedAt()]);
+
                     if (!$cac) {
                         $date = $lvc->getCreatedAt()?->format('D/M/Y');
                         $message = 'Impossible de récupérer le CAC correspondant au LVC en date du %s';
@@ -380,7 +370,7 @@ class PositionHandler
 
         // Ajoute au capital le résultat de la +/- value.
         $capital = $user->getAmount() ?: 0;
-        $capital += ($position->getLvcSellTarget() - $position->getLvcBuyTarget()) * $position->getQuantity();
+        $capital += ($position->getLvcSellTarget() - $position->getLvcBuyTarget()) * $position->getQuantityToSell();
 
         // Mise à jour du capital de l'utilisateur
         $capital = round($capital, 2);
@@ -391,19 +381,86 @@ class PositionHandler
         return $capital;
     }
 
-    public function investmentRatio(): float
+    /**
+     * Récupère les plus-values potentielles.
+     */
+    public function latentGainOrLoss(): int|float
     {
         /** @var PositionRepository $positionRepository */
         $positionRepository = $this->entityManager->getRepository(Position::class);
 
-        // Récupère les plus-values potentielles
-        $latentGainOrLoss = $positionRepository->getLatentGainOrLoss();
+        return $positionRepository->getLatentGainOrLoss();
+    }
 
-        // Récupère le capital
+    /**
+     * Calcule la valorisation du capital.
+     */
+    public function getValorisation(): int|float
+    {
+        $latentGainOrLoss = $this->latentGainOrLoss();
         $capital = $this->getCurrentUser()->getAmount() ?: 0;
         $capital += $latentGainOrLoss;
 
+        return $capital;
+    }
+
+    public function investmentRatio(): float
+    {
+        // Récupère les plus-values potentielles
+        $latentGainOrLoss = $this->latentGainOrLoss();
+
+        // Récupère le capital
+        $capital = $this->getValorisation();
+
         return 0 !== $capital ? round($latentGainOrLoss * 100 / $capital, 2) : $latentGainOrLoss;
+    }
+
+    /**
+     * Calcule la somme permettant de ramener l'investissement à 75% du capital.
+     */
+    public function targetRecoveryCapital(float|int $sellTarget, Position $position): float|int
+    {
+        // Récupère la valorisation du capital
+        $capital = $this->getValorisation();
+
+        // Calcule la valorisation des positions en cours
+        $runningInvestment = $this->lvcRepository->getLvcClosingAndTotalQuantity();
+
+        // Calcule 75% du capital
+        $maxInvestment = $capital * 75 / 100;
+
+        // Somme à vendre pour atteindre la cible minimale
+        $minSell = $runningInvestment - $maxInvestment;
+
+        // Valorisation du trade courant : valeur de la ligne / prix d'achat
+        $trade = $sellTarget * $position->getQuantity();
+
+        // On prend la plus grande des deux valeurs
+        return max($minSell, $trade);
+    }
+
+    /**
+     * Calcule la quantité de LVC à revendre en fonction du taux de position en cours par rapport à la valorisation.
+     * Si ratio > 75, vente du max entre vente du trade et retour à 75%.
+     * Si ratio > 50, vente de la totalité du trade.
+     * Si ratio > 25, vente uniquement du capital investi (750 €).
+     * Sinon, la position est conservée.
+     *
+     * NOTE : Le switch et le match ne réussissent pas à évaluer ratio...
+     */
+    public function getSellQuantity(float $ratio, Position $position, float $sellTarget): ?int
+    {
+        if ($ratio > 75) {
+            return (int) round($this->targetRecoveryCapital($sellTarget, $position) / $sellTarget);
+        }
+        if ($ratio > 50) {
+            return $position->getQuantity();
+        }
+        if ($ratio > 25) {
+            return (int) round(Position::LINE_VALUE / $sellTarget);
+        }
+
+        return null;
     }
 
     /**
