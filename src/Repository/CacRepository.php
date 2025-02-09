@@ -30,7 +30,7 @@ class CacRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
 
-        // Formate les dates après récupération des résultats
+        // Formate les dates après récupération des résultats //TODO : créer un normalizer
         foreach ($results as &$result) {
             $result['createdAt'] = $result['createdAt']->format('d/m/Y');
         }

@@ -3,8 +3,8 @@
 namespace App\Repository;
 
 use App\Entity\Lvc;
-use App\Entity\Position;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Exception;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -20,30 +20,25 @@ class LvcRepository extends ServiceEntityRepository
     /**
      * Calcule la valorisation des LVC en cours.
      */
-    public function getLvcClosingAndTotalQuantity(): float|int
+    public function getLvcClosingAndTotalQuantity(): float|int|false|null
     {
-        $qb = $this->createQueryBuilder('l');
+        try {
+            $sql = 'SELECT lvc.closing * '
+                .'(SELECT SUM(quantity) FROM position WHERE position.is_running = true) AS total_quantity '
+                .'FROM lvc WHERE id = (SELECT MAX(id) FROM lvc)';
 
-        // Sous-requête pour récupérer le dernier ID
-        $subQbMaxId = $this->createQueryBuilder('l');
-        $subQbMaxId->select('MAX(lvc2.id)')
-            ->from(Lvc::class, 'lvc2');
+            $result = $this
+                ->getEntityManager()
+                ->getConnection()
+                ->executeQuery($sql, ['is_running' => true])
+                ->fetchOne();
+        } catch (Exception $e) {
+            // TODO : Log de l'erreur
+            echo $e->getMessage();
 
-        // Requête principale
-        $lvcClosing = $qb->select('lvc.closing')
-            ->from(Lvc::class, 'lvc')
-            ->where($qb->expr()->eq('lvc.id', $subQbMaxId->getDQL()))
-            ->getQuery()
-            ->getSingleScalarResult();
+            return false;
+        }
 
-        // Sous-requête pour la quantité totale
-        $subQbTotalQuantity = $this->createQueryBuilder('p');
-        $subQbTotalQuantity->select('SUM(p.quantity)')
-            ->from(Position::class, 'p')
-            ->where('p.is_running = true');
-
-        $totalQuantity = $subQbTotalQuantity->getQuery()->getSingleScalarResult();
-
-        return round($lvcClosing * $totalQuantity, 2);
+        return round($result, 2);
     }
 }
