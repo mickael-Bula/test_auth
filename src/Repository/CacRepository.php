@@ -20,22 +20,17 @@ class CacRepository extends ServiceEntityRepository
     /**
      * Retourne toutes les cotations du Cac, ainsi que le cours de clôture du Lvc.
      * L'affichage présente les données les plus récentes.
+     *
+     * @return array<int, array<string, mixed>>
      */
     public function getCacAndLvcData(): mixed
     {
-        $results = $this->createQueryBuilder('c')
+        return $this->createQueryBuilder('c')
             ->select('c.createdAt', 'c.closing', 'c.opening', 'c.higher', 'c.lower', 'l.closing AS lvcClosing')
             ->join(Lvc::class, 'l', 'WITH', 'c.createdAt = l.createdAt')
             ->orderBy('c.createdAt', 'DESC')
             ->getQuery()
             ->getResult();
-
-        // Formate les dates après récupération des résultats //TODO : créer un normalizer
-        foreach ($results as &$result) {
-            $result['createdAt'] = $result['createdAt']->format('d/m/Y');
-        }
-
-        return $results;
     }
 
     /**
