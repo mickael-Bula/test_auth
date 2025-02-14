@@ -39,7 +39,7 @@ class PositionHandler
     }
 
     /**
-     * Récupère le User en BDD à partir de son id, en précisant à l'IDE que getId() se réfère à l'Entity User).
+     * Récupère le User en BDD à partir de son id, en précisant à l'IDE que getId() se réfère à l'Entity User.
      */
     public function getCurrentUser(): User
     {
@@ -276,13 +276,13 @@ class PositionHandler
 
         $sellQuantity = $this->getSellQuantity($ratio, $position, $sellTarget);
 
-        $sellTarget = $sellQuantity ? $sellTarget : null; // Si $sellQuantity est null, $sellTarget le sera aussi
+        // Si $sellQuantity est null, $sellTarget et $cacSellTarget le seront aussi.
+        $sellTarget = $sellQuantity ? $sellTarget : null;
+        $cacSellTarget = $sellTarget ? round($position->getBuyTarget() * 1.1, 2) : null;
 
-        // Revente d'une position à +20 % si sellTarget est différent de null.
-        if ($sellTarget) {
-            $position->setLvcSellTarget(round($sellTarget));
-            $position->setQuantityToSell($sellQuantity);
-        }
+        $position->setLvcSellTarget($sellTarget);
+        $position->setQuantityToSell($sellQuantity);
+        $position->setSellTarget($cacSellTarget);
 
         $this->entityManager->persist($position);
 
@@ -340,9 +340,10 @@ class PositionHandler
         // Récupère les positions isRunning de l'utilisateur.
         $positions = $this->getPositionsOfCurrentUser('isRunning');
 
-        // Pour chacune des positions en cours, je vérifie si lvc.higher > position.lvcSellTarget.
+        /* Pour chacune des positions en cours, si une limite de vente lvcSellTarget est fixée,
+        alors je vérifie si lvc.higher > position.lvcSellTarget. */
         foreach ($positions as $position) {
-            if ($lvc->getHigher() > $position->getLvcSellTarget()) {
+            if (null !== $position->getLvcSellTarget() && $lvc->getHigher() > $position->getLvcSellTarget()) {
                 // On passe le statut de la position à isClosed.
                 $this->closePosition($lvc, $position);
 
@@ -404,6 +405,9 @@ class PositionHandler
         return $capital;
     }
 
+    /**
+     * Calcule le ratio des positions en cours sur le capital.
+     */
     public function investmentRatio(): float
     {
         // Récupère les plus-values potentielles
@@ -412,7 +416,8 @@ class PositionHandler
         // Récupère le capital
         $capital = $this->getValorisation();
 
-        return 0 !== $capital ? round($latentGainOrLoss * 100 / $capital, 2) : $latentGainOrLoss;
+        // TODO : le capital ne peut pas être à 0, sinon pas d'achat possible. Dans l'intervalle, on retourne 100
+        return 0 !== $capital ? round($latentGainOrLoss * 100 / $capital, 2) : 100;
     }
 
     /**
