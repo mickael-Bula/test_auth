@@ -218,6 +218,8 @@ class PositionHandler
      */
     public function setPositions(LastHigh $lastHigh, array $positions = []): void
     {
+        // TODO : Les sommes nécessaires pour passer les ordres doivent être cohérents avec le montant.
+
         // Si le tableau des positions est vide, on crée 3 nouvelles positions
         if (0 === count($positions)) {
             $positions = array_map(static fn () => new Position(), range(1, 3));
@@ -416,8 +418,7 @@ class PositionHandler
         // Récupère le capital
         $capital = $this->getValorisation();
 
-        // TODO : le capital ne peut pas être à 0, sinon pas d'achat possible. Dans l'intervalle, on retourne 100
-        return 0 !== $capital ? round($latentGainOrLoss * 100 / $capital, 2) : 100;
+        return round($latentGainOrLoss * 100 / $capital, 2);
     }
 
     /**

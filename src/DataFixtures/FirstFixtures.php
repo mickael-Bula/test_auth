@@ -28,6 +28,14 @@ class FirstFixtures extends Fixture
         $user->setPassword('testPassword');
         $manager->persist($user);
 
+        // Crée un utilisateur avec un versement
+        $user = new User();
+        $user->setUsername('testUser2');
+        $user->setRoles(['ROLE_USER']);
+        $user->setPassword('testPassword2');
+        $user->setAmount(1000);
+        $manager->persist($user);
+
         // Charge les données Cac
         foreach ($data['cacData'] as $cacData) {
             $cac = new Cac();

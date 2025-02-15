@@ -50,8 +50,10 @@ class LastHighHandler
 
         $this->entityManager->flush();
 
-        // je crée également les positions en rapport avec la nouvelle buyLimit
-        $this->positionHandler->setPositions($lastHighEntity, []);
+        // Si l'utilisateur a fait un versement, je crée les positions en rapport avec la nouvelle buyLimit.
+        if (null !== $user->getAmount()) {
+            $this->positionHandler->setPositions($lastHighEntity, []);
+        }
     }
 
     public function setNewUserLastCacHigher(?Cac $cac): LastHigh

@@ -20,11 +20,19 @@ class CustomNormalizer implements NormalizerInterface
         return $object;
     }
 
-    public function supportsNormalization(mixed $data, ?string $format = null): bool
+    /**
+     * @param array<string, mixed> $context
+     */
+    public function supportsNormalization(mixed $data, ?string $format = null, array $context = []): bool
     {
-        return is_array($data)
-            && 'json' === $format
-            && (isset($data['createdAt'])
-            );
+        return is_array($data) && 'json' === $format && (isset($data['createdAt']));
+    }
+
+    /**
+     * @return array<string, bool>
+     */
+    public function getSupportedTypes(?string $format): array
+    {
+        return ['array' => true];
     }
 }

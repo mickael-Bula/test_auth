@@ -27,7 +27,7 @@ class ApiController extends AbstractController
     /**
      * Retourne les 10 dernières cotations du Cac et les derniers cours de clôture du Lvc.
      */
-    #[Route('/api/stocks/dashboard', methods: ['GET'])]
+    #[Route('/api/stocks/dashboard', name: 'api_dashboard', methods: ['GET'])]
     public function getDashboardData(): JsonResponse
     {
         $data = $this->cacRepository->getCacAndLvcData();
@@ -38,7 +38,7 @@ class ApiController extends AbstractController
     /**
      * Retourne le plus haut et la limite d'achat de l'utilisateur courant.
      */
-    #[Route('api/stocks/dashboard/positions', methods: ['GET'])]
+    #[Route('api/stocks/dashboard/positions', name: 'api_get_positions', methods: ['GET'])]
     public function getUserPositions(): JsonResponse
     {
         /** @var User $user */
@@ -48,6 +48,9 @@ class ApiController extends AbstractController
         if (is_null($user->getHigher())) {
             $this->lastHighHandler->setHigherToNewRegisteredUser($user);
         }
+
+        // TODO : Il faut retourner une réponse indiquant au front la saisie d'un versement initial.
+        // TODO : On pourra afficher l'équivalent d'un flash message pour demander la saisie.
 
         // Mise à jour des journées de cotation manquantes depuis la dernière visite de l'utilisateur.
         $cacList = $this->positionHandler->dataToCheck();
@@ -89,7 +92,7 @@ class ApiController extends AbstractController
     /**
      * @throws \JsonException
      */
-    #[Route('/api/config/amount', methods: ['POST'])]
+    #[Route('/api/config/amount', name: 'api_set_amount', methods: ['POST'])]
     public function setUserAmount(Request $request): JsonResponse
     {
         /** @var User $user */

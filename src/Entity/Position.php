@@ -26,7 +26,7 @@ class Position
     public const SPREAD = 0.06; // on fixe ici la limite à 6 % de baisse, le palier d'achat étant fixé à 2 % pout 3 lignes
 
     #[ORM\Id]
-    #[ORM\GeneratedValue]
+    #[ORM\GeneratedValue(strategy: 'SEQUENCE')] // Il faudra utiliser 'IDENTITY' avec DBAL 4
     #[ORM\Column]
     #[Groups(['position_read'])]
     private ?int $id = null;
