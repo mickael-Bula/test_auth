@@ -6,6 +6,7 @@ use App\Entity\Lvc;
 use App\Entity\Position;
 use App\Entity\User;
 use App\Repository\LvcRepository;
+use App\Repository\PositionRepository;
 use App\Repository\UserRepository;
 use App\Services\PositionHandler;
 use Doctrine\ORM\EntityManagerInterface;
@@ -17,6 +18,7 @@ use Symfony\Bundle\SecurityBundle\Security;
 class PositionHandlerTest extends TestCase
 {
     private MockObject $userRepository;
+    private MockObject $positionRepository;
 
     private MockObject&PositionHandler $positionHandler;
     private MockObject $lvcRepository;
@@ -29,6 +31,7 @@ class PositionHandlerTest extends TestCase
         $security = $this->createMock(Security::class);
         $logger = $this->createMock(LoggerInterface::class);
         $this->lvcRepository = $this->createMock(LvcRepository::class);
+        $this->positionRepository = $this->createMock(PositionRepository::class);
 
         $user = new User();
         $user->setAmount(1000);
@@ -38,7 +41,7 @@ class PositionHandlerTest extends TestCase
         $entityManager->method('getRepository')->willReturn($this->userRepository);
 
         $this->positionHandler = $this->getMockBuilder(PositionHandler::class)
-            ->setConstructorArgs([$entityManager, $security, $logger, $this->lvcRepository])
+            ->setConstructorArgs([$entityManager, $security, $logger, $this->lvcRepository, $this->positionRepository])
             ->onlyMethods(['getCurrentUser', 'latentGainOrLoss'])
             ->getMock();
 
@@ -146,5 +149,32 @@ class PositionHandlerTest extends TestCase
             [76.0, 15, 15, 15],
             [99.0, 15, 15, 15],
         ];
+    }
+
+    public function testNewTradePositionsWithAmountNullReturnsEmptyArray(): void
+    {
+        $user = $this->positionHandler->getCurrentUser();
+        $user->setAmount(null);
+        $positions = $this->positionHandler->createNewTradePositions();
+
+        $this->assertCount(0, $positions);
+    }
+
+    public function testNewTradePositionsWithTenThousandAsAmountReturnsArrayWithThreePositions(): void
+    {
+        $user = $this->positionHandler->getCurrentUser();
+        $user->setAmount(10000);
+        $positions = $this->positionHandler->createNewTradePositions();
+
+        $this->assertCount(3, $positions);
+    }
+
+    public function testNewTradePositionsWithOneThousandAsAmountReturnsArrayWithOnePosition(): void
+    {
+        $user = $this->positionHandler->getCurrentUser();
+        $user->setAmount(1000);
+        $positions = $this->positionHandler->createNewTradePositions();
+
+        $this->assertCount(1, $positions);
     }
 }

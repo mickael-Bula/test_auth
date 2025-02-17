@@ -242,30 +242,18 @@ class PositionHandler
     }
 
     /**
-     * Met à jour les positions en attente d'un utilisateur dont la buyLimit n'a pas été touchée.
+     * Crée les nouvelles positions de l'utilisateur
+     * ou met à jour celles qui sont en attente et dont la buyLimit n'a pas été touchée.
      *
      * @param Position[] $positions
      */
     public function setPositions(LastHigh $lastHigh, array $positions = []): void
     {
-        // TODO : Les sommes nécessaires pour passer les ordres doivent être cohérents avec le montant.
-
-        // Si le tableau des positions est vide, on crée 3 nouvelles positions
-        if (0 === count($positions)) {
-            $positions = array_map(static fn () => new Position(), range(1, 3));
-        }
-
-        /* Si la taille du tableau n'est pas égal à 3, c'est qu'une position du cycle d'achat
-        a été passée en isRunning : les positions isWaiting de la même buyLimit sont alors gelées. */
-        if (3 !== count($positions)) {
-            $this->logger->info(sprintf(
-                'Pas de mise à jour des positions. '
-                .'Au moins une position isRunning existe avec une buyLimit = %s',
-                $lastHigh->getBuyLimit())
-            );
-
-            return;
-        }
+        // TODO : tests unitaires pour getPositionsToUpdate() et isCurrentBuyLimitHasRunningPosition()
+        // On récupère les positions à créer ou à mettre à jour
+        $positions = (0 === count($positions))
+            ? $this->createNewTradePositions()
+            : $this->getPositionsToUpdate($lastHigh, $positions);
 
         foreach ($positions as $key => $position) {
             $this->setPosition($lastHigh, $position, $key);
@@ -656,5 +644,71 @@ class PositionHandler
         $user = $this->getCurrentUser();
         $user->setLastCacUpdated($cac);
         $this->entityManager->flush();
+    }
+
+    /**
+     * En fonction du montant disponible, crée jusqu'à 3 positions pour un nouveau trade.
+     *
+     * @return array<Position>
+     */
+    public function createNewTradePositions(): array
+    {
+        $user = $this->getCurrentUser();
+        $currentAmount = $user->getAmount();
+        $positions = [];
+
+        for ($i = 0; $i < 3; ++$i) {
+            if ($currentAmount >= Position::LINE_VALUE) {
+                $positions[] = new Position();
+                $currentAmount -= Position::LINE_VALUE;
+            }
+        }
+
+        return $positions;
+    }
+
+    /**
+     * @param array<Position> $positions
+     *
+     * @return array<Position>|array{}
+     */
+    public function getPositionsToUpdate(LastHigh $lastHigh, array $positions): array
+    {
+        $isUpdatable = $this->isCurrentBuyLimitHasRunningPosition($positions);
+
+        if (!$isUpdatable) {
+            $this->logger->info(
+                sprintf(
+                    'Pas de mise à jour des positions. '
+                    .'Au moins une position isRunning existe avec une buyLimit = %s',
+                    $lastHigh->getBuyLimit()
+                )
+            );
+
+            return [];
+        }
+
+        return $positions;
+    }
+
+    /**
+     * Si la BuyLimit du trade existe pour l'une des positions ayant le statut isRunning, on ne met pas à jour le trade.
+     * Pour rappel, dès le premier achat d'un trade, on gèle les autres positions de celui-ci et on en initie un nouveau.
+     *
+     * @param array<Position> $positions
+     */
+    public function isCurrentBuyLimitHasRunningPosition(array $positions): bool
+    {
+        // Récupère les positions en cours de l'utilisateur
+        $isRunningPositions = $this->getPositionsOfCurrentUser('isWaiting');
+
+        // On ne met pas à jour les positions si la buyLimit du trade est celle d'une position en cours.
+        foreach ($isRunningPositions as $position) {
+            if ($position->getBuyLimit()?->getId() === $positions[0]->getBuyLimit()?->getId()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

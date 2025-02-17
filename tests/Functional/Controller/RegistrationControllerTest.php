@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Controller;
 
 use App\Entity\User;
+use Doctrine\DBAL\Exception;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
@@ -12,11 +14,30 @@ use Symfony\Component\HttpFoundation\Response;
 class RegistrationControllerTest extends WebTestCase
 {
     private KernelBrowser $client;
+    private EntityManagerInterface $entityManager;
 
+    /**
+     * @throws Exception
+     */
     protected function setUp(): void
     {
-        $this->client = static::createClient();
         parent::setUp();
+
+        // Boot Kernel et création du client
+        $this->client = static::createClient();
+
+        // Récupère l'EntityManager et démarre une transaction
+        $this->entityManager = self::$kernel->getContainer()->get('doctrine')->getManager();
+        $this->entityManager->getConnection()->beginTransaction();
+    }
+
+    /**
+     * @throws Exception
+     */
+    protected function tearDown(): void
+    {
+        $this->entityManager->getConnection()->rollback();
+        $this->entityManager->getConnection()->close();
     }
 
     /**
@@ -25,8 +46,8 @@ class RegistrationControllerTest extends WebTestCase
     public function testRegisterSuccess(): void
     {
         $data = [
-            'username' => 'testuser',
-            'password' => 'testpassword',
+            'username' => 'testNewUser',
+            'password' => 'testPassword',
         ];
 
         $this->client->request(
@@ -40,15 +61,22 @@ class RegistrationControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
 
-        $responseData = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $responseData = json_decode(
+            $this->client->getResponse()->getContent(),
+            true,
+            512,
+            JSON_THROW_ON_ERROR
+        );
         $this->assertArrayHasKey('message', $responseData);
         $this->assertEquals('Utilisateur créé avec succès', $responseData['message']);
 
-        // Optionnel : Vérifier l'utilisateur dans la base de données
-        $user = $this->getUserFromDatabase(); // Méthode à implémenter
+        // Vérifie l'utilisateur dans la base de données
+        $user = $this->getUserFromDatabase();
         $this->assertNotNull($user);
-        $this->assertEquals('testuser', $user->getUsername());
-        $this->assertTrue(password_verify('testpassword', $user->getPassword())); // Vérifier le hash du mot de passe
+        $this->assertEquals('testNewUser', $user->getUsername());
+
+        // Vérifie le hash du mot de passe
+        $this->assertTrue(password_verify('testPassword', $user->getPassword()));
     }
 
     /**
@@ -78,6 +106,6 @@ class RegistrationControllerTest extends WebTestCase
     {
         $entityManager = $this->client->getContainer()->get('doctrine.orm.entity_manager');
 
-        return $entityManager->getRepository(User::class)->findOneBy(['username' => 'testuser']);
+        return $entityManager->getRepository(User::class)->findOneBy(['username' => 'testNewUser']);
     }
 }

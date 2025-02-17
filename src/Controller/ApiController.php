@@ -86,7 +86,7 @@ class ApiController extends AbstractController
         $this->entityManager->flush();
 
         // Crée les positions de l'utilisateur.
-        $this->positionHandler->setPositions($user->getHigher(), []);
+        $this->positionHandler->setPositions($user->getHigher());
 
         // Redirige vers la route api_get_positions pour transmettre les informations de l'utilisateur.
         return $this->redirectToRoute('api_get_positions');
