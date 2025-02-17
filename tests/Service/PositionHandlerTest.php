@@ -7,6 +7,7 @@ use App\Entity\LastHigh;
 use App\Entity\Position;
 use App\Entity\User;
 use App\Repository\LvcRepository;
+use App\Repository\PositionRepository;
 use App\Services\PositionHandler;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
@@ -24,6 +25,7 @@ class PositionHandlerTest extends TestCase
         $entityManagerMock = $this->createMock(EntityManagerInterface::class);
         $securityMock = $this->createMock(Security::class);
         $loggerMock = $this->createMock(LoggerInterface::class);
+        $positionRepository = $this->createMock(PositionRepository::class);
 
         $lvcRepository = $this->createMock(LvcRepository::class);
         $lvcRepository->method('getLvcClosingAndTotalQuantity')->willReturn(800);
@@ -31,7 +33,7 @@ class PositionHandlerTest extends TestCase
         // Création de l'instance de PositionHandler en passant les mocks et en forçant le retour de getCurrentUser
         $positionHandler = $this->getMockBuilder(PositionHandler::class)
             ->onlyMethods(['getCurrentUser', 'investmentRatio', 'latentGainOrLoss'])
-            ->setConstructorArgs([$entityManagerMock, $securityMock, $loggerMock, $lvcRepository])
+            ->setConstructorArgs([$entityManagerMock, $securityMock, $loggerMock, $lvcRepository, $positionRepository])
             ->getMock();
 
         // Configure le mock de l'utilisateur courant

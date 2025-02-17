@@ -20,22 +20,13 @@ use Symfony\Bundle\SecurityBundle\Security;
 
 class PositionHandler
 {
-    private EntityManagerInterface $entityManager;
-    private Security $security;
-    private LoggerInterface $logger;
-
-    private LvcRepository $lvcRepository;
-
     public function __construct(
-        EntityManagerInterface $entityManager,
-        Security $security,
-        LoggerInterface $logger,
-        LvcRepository $lvcRepository,
+        private readonly EntityManagerInterface $entityManager,
+        private readonly Security $security,
+        private readonly LoggerInterface $logger,
+        private readonly LvcRepository $lvcRepository,
+        private readonly PositionRepository $positionRepository,
     ) {
-        $this->entityManager = $entityManager;
-        $this->security = $security;
-        $this->logger = $logger;
-        $this->lvcRepository = $lvcRepository;
     }
 
     /**
@@ -47,6 +38,45 @@ class PositionHandler
         $user = $this->security->getUser();
 
         return $this->entityManager->getRepository(User::class)->find($user->getId());
+    }
+
+    /**
+     * Retourne les données de l'utilisateur.
+     *
+     * @return array<string, mixed>
+     */
+    public function getUserData(User $user): array
+    {
+        // Mise à jour des journées de cotation manquantes depuis la dernière visite de l'utilisateur.
+        $cacList = $this->dataToCheck();
+        $this->updateCacData($cacList);
+
+        $runningPRU = $this->positionRepository->getPriceEarningRatio($user->getId(), 'isRunning');
+        $waitingPRU = $this->positionRepository->getPriceEarningRatio($user->getId(), 'isWaiting');
+
+        // On récupère les données pour le calcul du portefeuille de l'utilisateur.
+        $wallet = [
+            'amount' => $user->getAmount(),
+            'runningPRU' => $runningPRU,
+            'waitingPRU' => $waitingPRU,
+        ];
+        $lastHigh = $user->getHigher();
+        $lastHigher = $lastHigh?->getHigher();
+        $dateOfLastHigher = $lastHigh?->getDailyCac()?->getCreatedAt()?->format('Y-m-d\TH:i:s\Z');
+        $buyLimit = $lastHigh?->getBuyLimit();
+        [$waitingPositions, $runningPositions, $closedPositions] = $this
+            ->positionRepository
+            ->getUserPositions($user->getId());
+
+        return [
+            'wallet' => $wallet,
+            'lastHigher' => $lastHigher,
+            'dateOfLastHigher' => $dateOfLastHigher,
+            'buyLimit' => $buyLimit,
+            'waitingPositions' => $waitingPositions,
+            'runningPositions' => $runningPositions,
+            'closedPositions' => $closedPositions,
+        ];
     }
 
     /**
@@ -230,7 +260,7 @@ class PositionHandler
         if (3 !== count($positions)) {
             $this->logger->info(sprintf(
                 'Pas de mise à jour des positions. '
-                    .'Au moins une position isRunning existe avec une buyLimit = %s',
+                .'Au moins une position isRunning existe avec une buyLimit = %s',
                 $lastHigh->getBuyLimit())
             );
 
