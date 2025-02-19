@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Entity\Cac;
@@ -9,26 +11,26 @@ use App\Entity\Position;
 use App\Entity\User;
 use App\Repository\CacRepository;
 use App\Repository\LastHighRepository;
+use App\Repository\LvcRepository;
 use App\Repository\PositionRepository;
+use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 
 class PositionHandler
 {
-    private EntityManagerInterface $entityManager;
-    private Security $security;
-    private LoggerInterface $logger;
-
-    public function __construct(EntityManagerInterface $entityManager, Security $security, LoggerInterface $logger)
-    {
-        $this->entityManager = $entityManager;
-        $this->security = $security;
-        $this->logger = $logger;
+    public function __construct(
+        private readonly EntityManagerInterface $entityManager,
+        private readonly Security $security,
+        private readonly LoggerInterface $logger,
+        private readonly LvcRepository $lvcRepository,
+        private readonly PositionRepository $positionRepository,
+    ) {
     }
 
     /**
-     * Récupère le User en BDD à partir de son id, en précisant à l'IDE que getId() se réfère à l'Entity User).
+     * Récupère le User en BDD à partir de son id, en précisant à l'IDE que getId() se réfère à l'Entity User.
      */
     public function getCurrentUser(): User
     {
@@ -36,6 +38,45 @@ class PositionHandler
         $user = $this->security->getUser();
 
         return $this->entityManager->getRepository(User::class)->find($user->getId());
+    }
+
+    /**
+     * Retourne les données de l'utilisateur.
+     *
+     * @return array<string, mixed>
+     */
+    public function getUserData(User $user): array
+    {
+        // Mise à jour des journées de cotation manquantes depuis la dernière visite de l'utilisateur.
+        $cacList = $this->dataToCheck();
+        $this->updateCacData($cacList);
+
+        $runningPRU = $this->positionRepository->getPriceEarningRatio($user->getId(), 'isRunning');
+        $waitingPRU = $this->positionRepository->getPriceEarningRatio($user->getId(), 'isWaiting');
+
+        // On récupère les données pour le calcul du portefeuille de l'utilisateur.
+        $wallet = [
+            'amount' => $user->getAmount(),
+            'runningPRU' => $runningPRU,
+            'waitingPRU' => $waitingPRU,
+        ];
+        $lastHigh = $user->getHigher();
+        $lastHigher = $lastHigh?->getHigher();
+        $dateOfLastHigher = $lastHigh?->getDailyCac()?->getCreatedAt()?->format('Y-m-d\TH:i:s\Z');
+        $buyLimit = $lastHigh?->getBuyLimit();
+        [$waitingPositions, $runningPositions, $closedPositions] = $this
+            ->positionRepository
+            ->getUserPositions($user->getId());
+
+        return [
+            'wallet' => $wallet,
+            'lastHigher' => $lastHigher,
+            'dateOfLastHigher' => $dateOfLastHigher,
+            'buyLimit' => $buyLimit,
+            'waitingPositions' => $waitingPositions,
+            'runningPositions' => $runningPositions,
+            'closedPositions' => $closedPositions,
+        ];
     }
 
     /**
@@ -93,13 +134,6 @@ class PositionHandler
         if (is_null($lastHighInDatabase)) {
             $lastHighInDatabase = $this->setHigher($cac);
         }
-
-        // TODO : il faudra vérifier le taux d'engagement : si 1 ou 2, la nouvelle règle ci-dessous ne s'applique pas.
-        // Si au moins une position en attente existe, on ne relève pas la buyLimit.
-        //        $positions = $this->getPositionsOfCurrentUser('isWaiting');
-        //        if (count($positions) > 0) {
-        //            return;
-        //        }
 
         // Si lastHigh a été dépassé, je l'actualise.
         if ($cac->getHigher() > $lastHighInDatabase->getHigher()) {
@@ -208,28 +242,17 @@ class PositionHandler
     }
 
     /**
-     * Met à jour les positions en attente d'un utilisateur dont la buyLimit n'a pas été touchée.
+     * Crée les nouvelles positions de l'utilisateur
+     * ou met à jour celles qui sont en attente et dont la buyLimit n'a pas été touchée.
      *
      * @param Position[] $positions
      */
     public function setPositions(LastHigh $lastHigh, array $positions = []): void
     {
-        // Si le tableau des positions est vide, on crée 3 nouvelles positions
-        if (0 === count($positions)) {
-            $positions = array_map(static fn () => new Position(), range(1, 3));
-        }
-
-        /* Si la taille du tableau n'est pas égal à 3, c'est qu'une position du cycle d'achat
-        a été passée en isRunning : les positions isWaiting de la même buyLimit sont alors gelées. */
-        if (3 !== count($positions)) {
-            $this->logger->info(sprintf(
-                'Pas de mise à jour des positions. '
-                    .'Au moins une position isRunning existe avec une buyLimit = %s',
-                $lastHigh->getBuyLimit())
-            );
-
-            return;
-        }
+        // On récupère les positions à créer ou à mettre à jour
+        $positions = (0 === count($positions))
+            ? $this->createNewTradePositions()
+            : $this->getPositionsToUpdate($lastHigh, $positions);
 
         foreach ($positions as $key => $position) {
             $this->setPosition($lastHigh, $position, $key);
@@ -264,8 +287,21 @@ class PositionHandler
         $position->setLvcBuyTarget(round($positionDeltaLvc, 2));
         $position->setQuantity((int) round(Position::LINE_VALUE / $positionDeltaLvc));
 
-        // Revente d'une position à +20 %.
-        $position->setLvcSellTarget(round($positionDeltaLvc * 1.2, 2));
+        // Définit la cible de revente
+        $sellTarget = round($positionDeltaLvc * 1.2, 2);
+
+        // Calcule le ratio d'investissement
+        $ratio = $this->investmentRatio();
+
+        $sellQuantity = $this->getSellQuantity($ratio, $position, $sellTarget);
+
+        // Si $sellQuantity est null, $sellTarget et $cacSellTarget le seront aussi.
+        $sellTarget = $sellQuantity ? $sellTarget : null;
+        $cacSellTarget = $sellTarget ? round($position->getBuyTarget() * 1.1, 2) : null;
+
+        $position->setLvcSellTarget($sellTarget);
+        $position->setQuantityToSell($sellQuantity);
+        $position->setSellTarget($cacSellTarget);
 
         $this->entityManager->persist($position);
 
@@ -294,10 +330,10 @@ class PositionHandler
                 // Si la position mise à jour est la première de sa série...
                 if ($this->checkIsFirst($position)) {
                     // ...on récupère le nouveau point haut en passant le cac contemporain du lvc courant.
-                    $cac = $this->entityManager->getRepository(Cac::class)
-                        ->findOneBy(
-                            ['createdAt' => $lvc->getCreatedAt()]
-                        );
+                    $cac = $this->entityManager
+                        ->getRepository(Cac::class)
+                        ->findOneBy(['createdAt' => $lvc->getCreatedAt()]);
+
                     if (!$cac) {
                         $date = $lvc->getCreatedAt()?->format('D/M/Y');
                         $message = 'Impossible de récupérer le CAC correspondant au LVC en date du %s';
@@ -323,13 +359,131 @@ class PositionHandler
         // Récupère les positions isRunning de l'utilisateur.
         $positions = $this->getPositionsOfCurrentUser('isRunning');
 
-        // Pour chacune des positions en cours, je vérifie si lvc.higher > position.lvcSellTarget.
+        /* Pour chacune des positions en cours, si une limite de vente lvcSellTarget est fixée,
+        alors je vérifie si lvc.higher > position.lvcSellTarget. */
         foreach ($positions as $position) {
-            if ($lvc->getHigher() > $position->getLvcSellTarget()) {
+            if (null !== $position->getLvcSellTarget() && $lvc->getHigher() > $position->getLvcSellTarget()) {
                 // On passe le statut de la position à isClosed.
                 $this->closePosition($lvc, $position);
+
+                // On met à jour le capital de l'utilisateur
+                $this->addSellResultToCapital($position);
             }
         }
+    }
+
+    /**
+     * Ajoute le résultat d'une vente au capital de l'utilisateur courant.
+     */
+    public function addSellResultToCapital(Position $position): ?float
+    {
+        /** @var UserRepository $userRepository */
+        $userRepository = $this->entityManager->getRepository(User::class);
+
+        $user = $userRepository->findOneBy(['id' => $this->getCurrentUser()]);
+
+        if (!$user) {
+            echo 'Utilisateur introuvable.';
+
+            return null;
+        }
+
+        // Ajoute au capital le résultat de la +/- value.
+        $capital = $user->getAmount() ?: 0;
+        $capital += ($position->getLvcSellTarget() - $position->getLvcBuyTarget()) * $position->getQuantityToSell();
+
+        // Mise à jour du capital de l'utilisateur
+        $capital = round($capital, 2);
+        $user->setAmount($capital);
+        $this->entityManager->persist($user);
+        $this->entityManager->flush();
+
+        return $capital;
+    }
+
+    /**
+     * Récupère les plus-values potentielles.
+     */
+    public function latentGainOrLoss(): int|float
+    {
+        /** @var PositionRepository $positionRepository */
+        $positionRepository = $this->entityManager->getRepository(Position::class);
+
+        return $positionRepository->getLatentGainOrLoss();
+    }
+
+    /**
+     * Calcule la valorisation du capital.
+     */
+    public function getValorisation(): int|float
+    {
+        $latentGainOrLoss = $this->latentGainOrLoss();
+        $capital = $this->getCurrentUser()->getAmount() ?: 0;
+        $capital += $latentGainOrLoss;
+
+        return $capital;
+    }
+
+    /**
+     * Calcule le ratio des positions en cours sur le capital.
+     */
+    public function investmentRatio(): float
+    {
+        // Récupère les plus-values potentielles
+        $latentGainOrLoss = $this->latentGainOrLoss();
+
+        // Récupère le capital
+        $capital = $this->getValorisation();
+
+        return round($latentGainOrLoss * 100 / $capital, 2);
+    }
+
+    /**
+     * Calcule la somme permettant de ramener l'investissement à 75% du capital.
+     */
+    public function targetRecoveryCapital(float|int $sellTarget, Position $position): float|int
+    {
+        // Récupère la valorisation du capital
+        $capital = $this->getValorisation();
+
+        // Calcule la valorisation des positions en cours
+        $runningInvestment = $this->lvcRepository->getLvcClosingAndTotalQuantity();
+
+        // Calcule 75% du capital
+        $maxInvestment = $capital * 75 / 100;
+
+        // Somme à vendre pour atteindre la cible minimale
+        $minSell = $runningInvestment - $maxInvestment;
+
+        // Valorisation du trade courant : valeur de la ligne / prix d'achat
+        $trade = $sellTarget * $position->getQuantity();
+
+        // On prend la plus grande des deux valeurs
+        return max($minSell, $trade);
+    }
+
+    /**
+     * Calcule la quantité de LVC à revendre en fonction du taux de position en cours par rapport à la valorisation.
+     * Si ratio > 75, vente du max entre vente du trade et retour à 75%.
+     * Si ratio > 50, vente de la totalité du trade.
+     * Si ratio > 25, vente uniquement du capital investi (750 €).
+     * Sinon, la position est conservée.
+     *
+     * NOTE : Le switch et le match ne réussissent pas à évaluer ratio...
+     */
+    public function getSellQuantity(float $ratio, Position $position, float $sellTarget): ?int
+    {
+        if ($ratio > 75) {
+            return (int) round($this->targetRecoveryCapital($sellTarget, $position) / $sellTarget);
+        }
+        if ($ratio > 50) {
+            return $position->getQuantity();
+        }
+        if ($ratio > 25) {
+            return (int) round(Position::LINE_VALUE / $sellTarget);
+        }
+
+        return null;
     }
 
     /**
@@ -339,7 +493,7 @@ class PositionHandler
      *
      * @return array<Position>
      */
-    private function getPositionsOfCurrentUser(string $status): array
+    public function getPositionsOfCurrentUser(string $status): array
     {
         return $this->entityManager->getRepository(Position::class)
             ->findBy(
@@ -489,5 +643,71 @@ class PositionHandler
         $user = $this->getCurrentUser();
         $user->setLastCacUpdated($cac);
         $this->entityManager->flush();
+    }
+
+    /**
+     * En fonction du montant disponible, crée jusqu'à 3 positions pour un nouveau trade.
+     *
+     * @return array<Position>
+     */
+    public function createNewTradePositions(): array
+    {
+        $user = $this->getCurrentUser();
+        $currentAmount = $user->getAmount();
+        $positions = [];
+
+        for ($i = 0; $i < 3; ++$i) {
+            if ($currentAmount >= Position::LINE_VALUE) {
+                $positions[] = new Position();
+                $currentAmount -= Position::LINE_VALUE;
+            }
+        }
+
+        return $positions;
+    }
+
+    /**
+     * @param array<Position> $positions
+     *
+     * @return array<Position>|array{}
+     */
+    public function getPositionsToUpdate(LastHigh $lastHigh, array $positions): array
+    {
+        $isUpdatable = $this->isCurrentBuyLimitHasRunningPosition($positions);
+
+        if (!$isUpdatable) {
+            $this->logger->info(
+                sprintf(
+                    'Pas de mise à jour des positions. '
+                    .'Au moins une position isRunning existe avec une buyLimit = %s',
+                    $lastHigh->getBuyLimit()
+                )
+            );
+
+            return [];
+        }
+
+        return $positions;
+    }
+
+    /**
+     * Si la BuyLimit du trade existe pour l'une des positions ayant le statut isRunning, on ne met pas à jour le trade.
+     * Pour rappel, dès le premier achat d'un trade, on gèle les autres positions de celui-ci et on en initie un nouveau.
+     *
+     * @param array<Position> $positions
+     */
+    public function isCurrentBuyLimitHasRunningPosition(array $positions): bool
+    {
+        // Récupère les positions en cours de l'utilisateur
+        $isRunningPositions = $this->getPositionsOfCurrentUser('isRunning');
+
+        // On ne met pas à jour les positions si la buyLimit du trade est celle d'une position en cours.
+        foreach ($isRunningPositions as $position) {
+            if ($position->getBuyLimit() === $positions[0]->getBuyLimit()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

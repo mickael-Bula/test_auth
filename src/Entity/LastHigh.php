@@ -12,7 +12,7 @@ use Symfony\Component\Serializer\Attribute\Groups;
 class LastHigh
 {
     #[ORM\Id]
-    #[ORM\GeneratedValue]
+    #[ORM\GeneratedValue(strategy: 'SEQUENCE')] // Il faudra utiliser 'IDENTITY' avec DBAL 4
     #[ORM\Column]
     #[Groups(['position_read'])]
     private ?int $id = null;

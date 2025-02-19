@@ -26,7 +26,7 @@ class Position
     public const SPREAD = 0.06; // on fixe ici la limite à 6 % de baisse, le palier d'achat étant fixé à 2 % pout 3 lignes
 
     #[ORM\Id]
-    #[ORM\GeneratedValue]
+    #[ORM\GeneratedValue(strategy: 'SEQUENCE')] // Il faudra utiliser 'IDENTITY' avec DBAL 4
     #[ORM\Column]
     #[Groups(['position_read'])]
     private ?int $id = null;
@@ -36,6 +36,7 @@ class Position
     private ?float $buyTarget = null;
 
     #[ORM\Column(type: 'float', nullable: true)]
+    #[Groups(['position_read'])]
     private ?float $sellTarget = null;
 
     #[ORM\Column(type: Types::DATE_MUTABLE, nullable: true)]
@@ -73,6 +74,10 @@ class Position
     #[Groups(['position_read'])]
     private ?int $quantity = null;
 
+    #[ORM\Column(nullable: true)]
+    #[Groups(['position_read'])]
+    private ?int $quantityToSell = null;
+
     #[ORM\ManyToOne(inversedBy: 'positions')]
     private ?User $userPosition = null;
 
@@ -86,7 +91,7 @@ class Position
         return $this->buyTarget;
     }
 
-    public function setBuyTarget(float $buyTarget): static
+    public function setBuyTarget(?float $buyTarget): static
     {
         $this->buyTarget = $buyTarget;
 
@@ -98,23 +103,11 @@ class Position
         return $this->sellTarget;
     }
 
-    public function setSellTarget(float $sellTarget): static
+    public function setSellTarget(?float $sellTarget): static
     {
         $this->sellTarget = $sellTarget;
 
         return $this;
-    }
-
-    /**
-     * Méthode appelée avant chaque Event persist et update de l'entité Position pour fixer la cible de revente à +10%.
-     */
-    #[ORM\PrePersist]
-    #[ORM\PostPersist]
-    public function SellTargetEvent(): void
-    {
-        if ($this->buyTarget) {
-            $this->setSellTarget($this->buyTarget * 1.1);
-        }
     }
 
     public function getBuyDate(): ?\DateTimeInterface
@@ -218,7 +211,7 @@ class Position
         return $this->lvcSellTarget;
     }
 
-    public function setLvcSellTarget(float $lvcSellTarget): static
+    public function setLvcSellTarget(?float $lvcSellTarget): static
     {
         $this->lvcSellTarget = $lvcSellTarget;
 
@@ -245,6 +238,18 @@ class Position
     public function setUserPosition(?User $userPosition): static
     {
         $this->userPosition = $userPosition;
+
+        return $this;
+    }
+
+    public function getQuantityToSell(): ?int
+    {
+        return $this->quantityToSell;
+    }
+
+    public function setQuantityToSell(?int $quantityToSell): static
+    {
+        $this->quantityToSell = $quantityToSell;
 
         return $this;
     }

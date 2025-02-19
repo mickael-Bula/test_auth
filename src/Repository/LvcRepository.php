@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\Entity\Lvc;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Exception;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -16,28 +17,28 @@ class LvcRepository extends ServiceEntityRepository
         parent::__construct($registry, Lvc::class);
     }
 
-    //    /**
-    //     * @return Lvc[] Returns an array of Lvc objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('l')
-    //            ->andWhere('l.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('l.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
+    /**
+     * Calcule la valorisation des LVC en cours.
+     */
+    public function getLvcClosingAndTotalQuantity(): float|int|false|null
+    {
+        try {
+            $sql = 'SELECT lvc.closing * '
+                .'(SELECT SUM(quantity) FROM position WHERE position.is_running = true) AS total_quantity '
+                .'FROM lvc WHERE id = (SELECT MAX(id) FROM lvc)';
 
-    //    public function findOneBySomeField($value): ?Lvc
-    //    {
-    //        return $this->createQueryBuilder('l')
-    //            ->andWhere('l.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+            $result = $this
+                ->getEntityManager()
+                ->getConnection()
+                ->executeQuery($sql, ['is_running' => true])
+                ->fetchOne();
+        } catch (Exception $e) {
+            // TODO : Log de l'erreur
+            echo $e->getMessage();
+
+            return false;
+        }
+
+        return round($result, 2);
+    }
 }

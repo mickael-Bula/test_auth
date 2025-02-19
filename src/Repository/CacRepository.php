@@ -20,6 +20,8 @@ class CacRepository extends ServiceEntityRepository
     /**
      * Retourne toutes les cotations du Cac, ainsi que le cours de clôture du Lvc.
      * L'affichage présente les données les plus récentes.
+     *
+     * @return array<int, array<string, mixed>>
      */
     public function getCacAndLvcData(): mixed
     {

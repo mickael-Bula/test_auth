@@ -4,20 +4,20 @@ namespace App\Controller;
 
 use App\Entity\User;
 use App\Repository\CacRepository;
-use App\Repository\PositionRepository;
 use App\Services\LastHighHandler;
 use App\Services\PositionHandler;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 class ApiController extends AbstractController
 {
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
-        private readonly PositionRepository $positionRepository,
         private readonly CacRepository $cacRepository,
         private readonly PositionHandler $positionHandler,
         private readonly LastHighHandler $lastHighHandler,
@@ -27,7 +27,7 @@ class ApiController extends AbstractController
     /**
      * Retourne les 10 dernières cotations du Cac et les derniers cours de clôture du Lvc.
      */
-    #[Route('/api/stocks/dashboard', methods: ['GET'])]
+    #[Route('/api/stocks/dashboard', name: 'api_dashboard', methods: ['GET'])]
     public function getDashboardData(): JsonResponse
     {
         $data = $this->cacRepository->getCacAndLvcData();
@@ -38,7 +38,7 @@ class ApiController extends AbstractController
     /**
      * Retourne le plus haut et la limite d'achat de l'utilisateur courant.
      */
-    #[Route('api/stocks/dashboard/positions', methods: ['GET'])]
+    #[Route('api/stocks/dashboard/positions', name: 'api_get_positions', methods: ['GET'])]
     public function getUserPositions(): JsonResponse
     {
         /** @var User $user */
@@ -49,62 +49,35 @@ class ApiController extends AbstractController
             $this->lastHighHandler->setHigherToNewRegisteredUser($user);
         }
 
-        // Mise à jour des journées de cotation manquantes depuis la dernière visite de l'utilisateur.
-        $cacList = $this->positionHandler->dataToCheck();
-        $this->positionHandler->updateCacData($cacList);
+        // Récupère les données de l'utilisateur
+        $data = $this->positionHandler->getUserData($user);
 
-        $runningPRU = $this->positionRepository->getPriceEarningRatio($user->getId(), 'isRunning');
-        $waitingPRU = $this->positionRepository->getPriceEarningRatio($user->getId(), 'isWaiting');
-
-        // On récupère les données pour le calcul du portefeuille de l'utilisateur.
-        $wallet = [
-            'amount' => $user->getAmount(),
-            'runningPRU' => $runningPRU,
-            'waitingPRU' => $waitingPRU,
-        ];
-        $lastHigh = $user->getHigher();
-        $lastHigher = $lastHigh?->getHigher();
-        $dateOfLastHigher = $lastHigh?->getDailyCac()?->getCreatedAt()?->format('Y-m-d\TH:i:s\Z');
-        $buyLimit = $lastHigh?->getBuyLimit();
-        [$waitingPositions, $runningPositions, $closedPositions] = $this->positionRepository->getUserPositions(
-            $user->getId()
-        );
-
-        return $this->json(
-            [
-                'wallet' => $wallet,
-                'lastHigher' => $lastHigher,
-                'dateOfLastHigher' => $dateOfLastHigher,
-                'buyLimit' => $buyLimit,
-                'waitingPositions' => $waitingPositions,
-                'runningPositions' => $runningPositions,
-                'closedPositions' => $closedPositions,
-            ],
-            200,
-            [],
-            ['groups' => 'position_read'],
-        );
+        return $this->json($data, Response::HTTP_ACCEPTED, [], ['groups' => 'position_read']);
     }
 
     /**
+     * Enregistre en base le versement de l'utilisateur et crée ses positions.
+     *
      * @throws \JsonException
      */
-    #[Route('/api/config/amount', methods: ['POST'])]
-    public function setUserAmount(Request $request): JsonResponse
+    #[Route('/api/config/amount', name: 'api_set_amount', methods: ['POST'])]
+    public function setUserAmount(Request $request): RedirectResponse|JsonResponse
     {
         /** @var User $user */
         $user = $this->getUser();
 
         $data = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        // Si le versement n'est pas valide, on retourne une erreur.
         if (!isset($data['amount']) || !is_numeric($data['amount'])) {
-            return new JsonResponse(['error' => 'Montant invalide.'], 400);
+            return new JsonResponse(['error' => 'Montant invalide.'], Response::HTTP_BAD_REQUEST);
         }
 
         $amountValue = (float) $data['amount'];
 
-        // Valide le montant
+        // Vérifie que le montant est un nombre positif.
         if ($amountValue <= 0) {
-            return $this->json(['error' => 'Le montant doit être supérieur à 0'], 400);
+            return $this->json(['error' => 'Le montant doit être supérieur à 0'], Response::HTTP_BAD_REQUEST);
         }
 
         // Insère le montant dans la table User
@@ -112,6 +85,10 @@ class ApiController extends AbstractController
         $this->entityManager->persist($user);
         $this->entityManager->flush();
 
-        return $this->json(['success' => 'Montant mis à jour.', 'amount' => $user->getAmount()]);
+        // Crée les positions de l'utilisateur.
+        $this->positionHandler->setPositions($user->getHigher());
+
+        // Redirige vers la route api_get_positions pour transmettre les informations de l'utilisateur.
+        return $this->redirectToRoute('api_get_positions');
     }
 }

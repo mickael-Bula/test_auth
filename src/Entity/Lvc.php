@@ -13,7 +13,7 @@ use Doctrine\ORM\Mapping as ORM;
 class Lvc
 {
     #[ORM\Id]
-    #[ORM\GeneratedValue]
+    #[ORM\GeneratedValue(strategy: 'SEQUENCE')] // Il faudra utiliser 'IDENTITY' avec DBAL 4
     #[ORM\Column]
     private ?int $id = null;
 

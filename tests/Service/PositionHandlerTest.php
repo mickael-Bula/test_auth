@@ -6,6 +6,8 @@ use App\Entity\Cac;
 use App\Entity\LastHigh;
 use App\Entity\Position;
 use App\Entity\User;
+use App\Repository\LvcRepository;
+use App\Repository\PositionRepository;
 use App\Services\PositionHandler;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
@@ -14,22 +16,33 @@ use Symfony\Bundle\SecurityBundle\Security;
 
 class PositionHandlerTest extends TestCase
 {
-    public function testSetPosition(): void
+    /**
+     * @dataProvider getRatio
+     */
+    public function testSetPosition(float $ratio, ?int $sellTarget, ?int $quantity): void
     {
         // Création des mocks pour les dépendances
         $entityManagerMock = $this->createMock(EntityManagerInterface::class);
         $securityMock = $this->createMock(Security::class);
         $loggerMock = $this->createMock(LoggerInterface::class);
+        $positionRepository = $this->createMock(PositionRepository::class);
+
+        $lvcRepository = $this->createMock(LvcRepository::class);
+        $lvcRepository->method('getLvcClosingAndTotalQuantity')->willReturn(800);
 
         // Création de l'instance de PositionHandler en passant les mocks et en forçant le retour de getCurrentUser
         $positionHandler = $this->getMockBuilder(PositionHandler::class)
-            ->onlyMethods(['getCurrentUser'])
-            ->setConstructorArgs([$entityManagerMock, $securityMock, $loggerMock])
+            ->onlyMethods(['getCurrentUser', 'investmentRatio', 'latentGainOrLoss'])
+            ->setConstructorArgs([$entityManagerMock, $securityMock, $loggerMock, $lvcRepository, $positionRepository])
             ->getMock();
 
-        // Configurer le mock de l'utilisateur courant
+        // Configure le mock de l'utilisateur courant
         $userMock = $this->createMock(User::class);
+        $userMock->method('getAmount')->willReturn(1000.0);
+
         $positionHandler->method('getCurrentUser')->willReturn($userMock);
+        $positionHandler->method('investmentRatio')->willReturn($ratio);
+        $positionHandler->method('latentGainOrLoss')->willReturn(10);
 
         // Création des mocks pour les entités LastHigh et Position
         $lastHighMock = $this->createMock(LastHigh::class);
@@ -40,8 +53,9 @@ class PositionHandlerTest extends TestCase
         $lastHighMock->method('getDailyCac')->willReturn($dailyCacMock);
 
         $positionMock = $this->createMock(Position::class);
+        $positionMock->method('getQuantity')->willReturn(15);
 
-        // Définir les expectations sur le mock de Position avant d'appeler setPosition
+        // Définit les attentes sur le mock de Position avant d'appeler setPosition
         $positionMock->expects($this->once())
             ->method('setBuyLimit')
             ->with($lastHighMock);
@@ -62,20 +76,43 @@ class PositionHandlerTest extends TestCase
             ->with(50.0); // Pour `key = 0`, delta 'lvc' est 0%
         $positionMock->expects($this->once())
             ->method('setQuantity')
-            ->with((int) round(Position::LINE_VALUE / 50.0));
-        $positionMock->expects($this->once())
-            ->method('setLvcSellTarget')
-            ->with(60.0); // 50.0 * 1.2 = 60.0
+            ->with((int) round(Position::LINE_VALUE / 50.0)); // 750 / 50 = 15
+
+        if ($ratio > 25) {
+            $positionMock->expects($this->once())
+                ->method('setLvcSellTarget')
+                ->with($sellTarget); // 50.0 * 1.2 = 60.0
+            $positionMock->expects($this->once())
+                ->method('setQuantityToSell')
+                ->with($quantity);
+        }
 
         // Simulation de l'appel à `persist`
         $entityManagerMock->expects($this->once())
             ->method('persist')
             ->with($positionMock);
 
-        // Définir la clé pour les delta
+        // Définit la clé pour les delta
         $key = 0;
 
         // Appel de la méthode à tester
-        $result = $positionHandler->setPosition($lastHighMock, $positionMock, $key);
+        $positionHandler->setPosition($lastHighMock, $positionMock, $key);
+    }
+
+    /**
+     * NOTE : La déclaration des types correspond à un tableau avec en clé un int et pour valeurs int|float|null.
+     *
+     * @return array<int, array<int, int|float|null>>
+     */
+    public function getRatio(): array
+    {
+        return [
+            [0.0, null, null],
+            [1.0, null, null],
+            [25.0, null, null],
+            [50.0, 60, 13],
+            [75.0, 60, 15],
+            [100.0, 60, 15],
+        ];
     }
 }

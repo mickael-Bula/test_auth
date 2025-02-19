@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\Entity\Position;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Exception;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -58,7 +59,7 @@ class PositionRepository extends ServiceEntityRepository
         }
 
         $result = $this->createQueryBuilder('p')
-            ->select('SUM(p.quantity) AS total', 'SUM(p.lvcBuyTarget) / COUNT(p.quantity) AS pru')
+            ->select('SUM(p.quantity) AS total', 'SUM(p.lvcBuyTarget * p.quantity) / SUM(p.quantity) AS pru')
             ->where('p.userPosition = :user')
             ->andWhere('p.'.$status.' = true')
             ->setParameter('user', $userId)
@@ -69,5 +70,32 @@ class PositionRepository extends ServiceEntityRepository
         $result['pru'] = number_format((float) $result['pru'], 2);
 
         return $result;
+    }
+
+    /**
+     * Récupère les plus-values potentielles.
+     *
+     * NOTE : Pas possible de faire des sous-requêtes en DQL, j'utilise du SQL natif.
+     */
+    public function getLatentGainOrLoss(): bool|float
+    {
+        try {
+            $sql = 'SELECT SUM(trade_result) '
+                .'FROM (SELECT (p.lvc_sell_target - p.lvc_buy_target) * p.quantity AS trade_result '
+                .'FROM position p WHERE p.is_running = :is_running) AS sub_query';
+
+            $result = $this
+                ->getEntityManager()
+                ->getConnection()
+                ->executeQuery($sql, ['is_running' => true])
+                ->fetchOne();
+        } catch (Exception $e) {
+            // TODO : Log de l'erreur
+            echo $e->getMessage();
+
+            return false;
+        }
+
+        return (float) $result;
     }
 }

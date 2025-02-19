@@ -14,22 +14,20 @@ use Psr\Log\LoggerInterface;
 class LastHighHandler
 {
     private EntityManagerInterface $entityManager;
-    private PositionHandler $positionHandler;
     private LoggerInterface $logger;
 
-    public function __construct(
-        EntityManagerInterface $entityManager,
-        PositionHandler $positionHandler,
-        LoggerInterface $myAppLogger,
-    ) {
+    public function __construct(EntityManagerInterface $entityManager, LoggerInterface $myAppLogger)
+    {
         $this->entityManager = $entityManager;
-        $this->positionHandler = $positionHandler;
         $this->logger = $myAppLogger;
     }
 
+    /**
+     * Affecte le plus haut de la cotation la plus récente comme LastHigh de l'utilisateur.
+     */
     public function setHigherToNewRegisteredUser(User $user): void
     {
-        // On récupère le plus haut le plus récent du Cac et on en fait le plus haut de l'utilisateur.
+        // On récupère le plus récent plus haut du Cac et on l'assigne à l'utilisateur.
         $cac = $this->entityManager->getRepository(Cac::class)->findOneBy([], ['id' => 'DESC']);
 
         $lastHighEntity = $this->setNewUserLastCacHigher($cac);
@@ -49,9 +47,6 @@ class LastHighHandler
         $user->setLastCacUpdated($cac);
 
         $this->entityManager->flush();
-
-        // je crée également les positions en rapport avec la nouvelle buyLimit
-        $this->positionHandler->setPositions($lastHighEntity, []);
     }
 
     public function setNewUserLastCacHigher(?Cac $cac): LastHigh
