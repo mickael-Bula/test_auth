@@ -2,6 +2,7 @@
 
 namespace App\Tests\Unit;
 
+use App\Entity\LastHigh;
 use App\Entity\Lvc;
 use App\Entity\Position;
 use App\Entity\User;
@@ -176,5 +177,130 @@ class PositionHandlerTest extends TestCase
         $positions = $this->positionHandler->createNewTradePositions();
 
         $this->assertCount(1, $positions);
+    }
+
+    public function testGetPositionsToUpdateWithCurrentByLimitSetReturnsAnArrayOfThreePositions(): void
+    {
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $security = $this->createMock(Security::class);
+        $logger = $this->createMock(LoggerInterface::class);
+        $lvcRepository = $this->createMock(LvcRepository::class);
+        $positionRepository = $this->createMock(PositionRepository::class);
+
+        $positionHandler = $this->getMockBuilder(PositionHandler::class)
+            ->setConstructorArgs([$entityManager, $security, $logger, $lvcRepository, $positionRepository])
+            ->onlyMethods(['isCurrentBuyLimitHasRunningPosition'])
+            ->getMock();
+
+        $positionHandler->method('isCurrentBuyLimitHasRunningPosition')->willReturn(true);
+
+        $lastHigh = $this->createMock(LastHigh::class);
+        $positions = [];
+        for ($i = 0; $i < 3; ++$i) {
+            $positions[$i] = new Position();
+        }
+
+        $result = $positionHandler->getPositionsToUpdate($lastHigh, $positions);
+
+        $this->assertCount(3, $result);
+    }
+
+    public function testGetPositionsToUpdateWithCurrentByLimitNotSetReturnsEmptyArray(): void
+    {
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $security = $this->createMock(Security::class);
+        $logger = $this->createMock(LoggerInterface::class);
+        $lvcRepository = $this->createMock(LvcRepository::class);
+        $positionRepository = $this->createMock(PositionRepository::class);
+
+        $positionHandler = $this->getMockBuilder(PositionHandler::class)
+            ->setConstructorArgs([$entityManager, $security, $logger, $lvcRepository, $positionRepository])
+            ->onlyMethods(['isCurrentBuyLimitHasRunningPosition'])
+            ->getMock();
+
+        $positionHandler->method('isCurrentBuyLimitHasRunningPosition')->willReturn(false);
+
+        $lastHigh = $this->createMock(LastHigh::class);
+        $positions = [];
+        for ($i = 0; $i < 3; ++$i) {
+            $positions[$i] = new Position();
+        }
+
+        $result = $positionHandler->getPositionsToUpdate($lastHigh, $positions);
+
+        $this->assertCount(0, $result);
+    }
+
+    public function testIsCurrentByLimitHasRunningPositionReturnsFalse(): void
+    {
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $security = $this->createMock(Security::class);
+        $logger = $this->createMock(LoggerInterface::class);
+        $lvcRepository = $this->createMock(LvcRepository::class);
+        $positionRepository = $this->createMock(PositionRepository::class);
+
+        $positionHandler = $this->getMockBuilder(PositionHandler::class)
+            ->setConstructorArgs([$entityManager, $security, $logger, $lvcRepository, $positionRepository])
+            ->onlyMethods(['getPositionsOfCurrentUser'])
+            ->getMock();
+
+        $buyLimit = new LastHigh();
+        $buyLimit->setBuyLimit(7000);
+
+        $buyLimitToCheck = new LastHigh();
+        $buyLimitToCheck->setBuyLimit(7200);
+
+        $positions = [];
+        for ($i = 0; $i < 3; ++$i) {
+            $positions[$i] = new Position();
+            $positions[$i]->setBuyLimit($buyLimit);
+        }
+
+        $positionsToCheck = [];
+        for ($i = 0; $i < 3; ++$i) {
+            $positionsToCheck[$i] = new Position();
+            $positionsToCheck[$i]->setBuyLimit($buyLimitToCheck);
+        }
+
+        $positionHandler->method('getPositionsOfCurrentUser')
+            ->with('isRunning')
+            ->willReturn($positions);
+
+        $this->assertFalse($positionHandler->isCurrentBuyLimitHasRunningPosition($positionsToCheck));
+    }
+
+    public function testIsCurrentByLimitHasRunningPositionReturnsTrue(): void
+    {
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $security = $this->createMock(Security::class);
+        $logger = $this->createMock(LoggerInterface::class);
+        $lvcRepository = $this->createMock(LvcRepository::class);
+        $positionRepository = $this->createMock(PositionRepository::class);
+
+        $positionHandler = $this->getMockBuilder(PositionHandler::class)
+            ->setConstructorArgs([$entityManager, $security, $logger, $lvcRepository, $positionRepository])
+            ->onlyMethods(['getPositionsOfCurrentUser'])
+            ->getMock();
+
+        $buyLimit = new LastHigh();
+        $buyLimit->setBuyLimit(7000);
+
+        $positions = [];
+        for ($i = 0; $i < 3; ++$i) {
+            $positions[$i] = new Position();
+            $positions[$i]->setBuyLimit($buyLimit);
+        }
+
+        $positionsToCheck = [];
+        for ($i = 0; $i < 3; ++$i) {
+            $positionsToCheck[$i] = new Position();
+            $positionsToCheck[$i]->setBuyLimit($buyLimit);
+        }
+
+        $positionHandler->method('getPositionsOfCurrentUser')
+            ->with('isRunning')
+            ->willReturn($positions);
+
+        $this->assertTrue($positionHandler->isCurrentBuyLimitHasRunningPosition($positionsToCheck));
     }
 }

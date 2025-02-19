@@ -25,12 +25,19 @@ class CacRepository extends ServiceEntityRepository
      */
     public function getCacAndLvcData(): mixed
     {
-        return $this->createQueryBuilder('c')
+        $results = $this->createQueryBuilder('c')
             ->select('c.createdAt', 'c.closing', 'c.opening', 'c.higher', 'c.lower', 'l.closing AS lvcClosing')
             ->join(Lvc::class, 'l', 'WITH', 'c.createdAt = l.createdAt')
             ->orderBy('c.createdAt', 'DESC')
             ->getQuery()
             ->getResult();
+
+        // Formate les dates après récupération des résultats
+        foreach ($results as &$result) {
+            $result['createdAt'] = $result['createdAt']->format('d/m/Y');
+        }
+
+        return $results;
     }
 
     /**

@@ -249,7 +249,6 @@ class PositionHandler
      */
     public function setPositions(LastHigh $lastHigh, array $positions = []): void
     {
-        // TODO : tests unitaires pour getPositionsToUpdate() et isCurrentBuyLimitHasRunningPosition()
         // On récupère les positions à créer ou à mettre à jour
         $positions = (0 === count($positions))
             ? $this->createNewTradePositions()
@@ -494,7 +493,7 @@ class PositionHandler
      *
      * @return array<Position>
      */
-    private function getPositionsOfCurrentUser(string $status): array
+    public function getPositionsOfCurrentUser(string $status): array
     {
         return $this->entityManager->getRepository(Position::class)
             ->findBy(
@@ -700,11 +699,11 @@ class PositionHandler
     public function isCurrentBuyLimitHasRunningPosition(array $positions): bool
     {
         // Récupère les positions en cours de l'utilisateur
-        $isRunningPositions = $this->getPositionsOfCurrentUser('isWaiting');
+        $isRunningPositions = $this->getPositionsOfCurrentUser('isRunning');
 
         // On ne met pas à jour les positions si la buyLimit du trade est celle d'une position en cours.
         foreach ($isRunningPositions as $position) {
-            if ($position->getBuyLimit()?->getId() === $positions[0]->getBuyLimit()?->getId()) {
+            if ($position->getBuyLimit() === $positions[0]->getBuyLimit()) {
                 return true;
             }
         }
