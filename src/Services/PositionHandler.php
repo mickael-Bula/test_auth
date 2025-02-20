@@ -43,9 +43,11 @@ class PositionHandler
     /**
      * Retourne les données de l'utilisateur.
      *
+     * @param array<string, mixed> $notification
+     *
      * @return array<string, mixed>
      */
-    public function getUserData(User $user): array
+    public function getUserData(User $user, ?array $notification = null): array
     {
         // Mise à jour des journées de cotation manquantes depuis la dernière visite de l'utilisateur.
         $cacList = $this->dataToCheck();
@@ -76,6 +78,7 @@ class PositionHandler
             'waitingPositions' => $waitingPositions,
             'runningPositions' => $runningPositions,
             'closedPositions' => $closedPositions,
+            'notification' => $notification,
         ];
     }
 
@@ -244,10 +247,11 @@ class PositionHandler
     /**
      * Crée les nouvelles positions de l'utilisateur
      * ou met à jour celles qui sont en attente et dont la buyLimit n'a pas été touchée.
+     * Le nombre de positions créées est retourné dans la notification au front.
      *
      * @param Position[] $positions
      */
-    public function setPositions(LastHigh $lastHigh, array $positions = []): void
+    public function setPositions(LastHigh $lastHigh, array $positions = []): int
     {
         // On récupère les positions à créer ou à mettre à jour
         $positions = (0 === count($positions))
@@ -258,6 +262,8 @@ class PositionHandler
             $this->setPosition($lastHigh, $position, $key);
         }
         $this->entityManager->flush();
+
+        return count($positions);
     }
 
     public function setPosition(LastHigh $lastHigh, Position $position, int $key): Position

@@ -25,7 +25,7 @@ class ApiController extends AbstractController
     }
 
     /**
-     * Retourne les 10 dernières cotations du Cac et les derniers cours de clôture du Lvc.
+     * Retourne les dernières cotations du Cac et les derniers cours de clôture du Lvc.
      */
     #[Route('/api/stocks/dashboard', name: 'api_dashboard', methods: ['GET'])]
     public function getDashboardData(): JsonResponse
@@ -39,18 +39,20 @@ class ApiController extends AbstractController
      * Retourne le plus haut et la limite d'achat de l'utilisateur courant.
      */
     #[Route('api/stocks/dashboard/positions', name: 'api_get_positions', methods: ['GET'])]
-    public function getUserPositions(): JsonResponse
+    public function getUserPositions(Request $request): JsonResponse
     {
         /** @var User $user */
         $user = $this->getUser();
+
+        // On vérifie si une notification est disponible.
+        $notification = $this->getNotification($request);
 
         // Si aucun plus haut n'est affecté à l'utilisateur, on le crée
         if (is_null($user->getHigher())) {
             $this->lastHighHandler->setHigherToNewRegisteredUser($user);
         }
 
-        // Récupère les données de l'utilisateur
-        $data = $this->positionHandler->getUserData($user);
+        $data = $this->positionHandler->getUserData($user, $notification);
 
         return $this->json($data, Response::HTTP_ACCEPTED, [], ['groups' => 'position_read']);
     }
@@ -80,15 +82,64 @@ class ApiController extends AbstractController
             return $this->json(['error' => 'Le montant doit être supérieur à 0'], Response::HTTP_BAD_REQUEST);
         }
 
-        // Insère le montant dans la table User
+        // Récupère la propriété amount de l'utilisateur enregistré en base
+        $userAmount = $user->getAmount();
+
+        $isFirstPayment = true;
+
+        // Si un versement préalable existe, on cumule les montants.
+        if (null !== $userAmount) {
+            $amountValue += $userAmount;
+            $isFirstPayment = false;
+        }
+
+        // Enregistrement du versement
         $user->setAmount($amountValue);
         $this->entityManager->persist($user);
         $this->entityManager->flush();
 
-        // Crée les positions de l'utilisateur.
-        $this->positionHandler->setPositions($user->getHigher());
+        // Si c'est un premier versement, on crée les positions.
+        $param = $isFirstPayment
+            ? ['positionsCreated' => $this->positionHandler->setPositions($user->getHigher())]
+            : ['amountUpdated' => true];
 
         // Redirige vers la route api_get_positions pour transmettre les informations de l'utilisateur.
-        return $this->redirectToRoute('api_get_positions');
+        return $this->redirectToRoute('api_get_positions', $param);
+    }
+
+    /**
+     * @return array<string, string>|null
+     */
+    public function getNotification(Request $request): ?array
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+
+        // Si l'on vient de la route setAmount avec un premier versement, le nombre de positions créées est disponible
+        if ($positionsCreated = $request->query->get('positionsCreated')) {
+            return [
+                'message' => "$positionsCreated positions créées suite au versement initial.",
+                'type' => 'success',
+            ];
+        }
+
+        // Si l'on vient de la route setAmount avec un nouveau versement.
+        if ($request->query->get('amountUpdated')) {
+            return [
+                'message' => 'Le nouveau versement a été pris en compte.',
+                'type' => 'success',
+            ];
+        }
+
+        // Si aucun versement n'a été effectué.
+        if (null === $user->getAmount()) {
+            return [
+                'message' => 'Pour profiter du suivi des positions, '
+                    .'veuillez saisir un versement initial depuis le menu Paramètres.',
+                'type' => 'warning',
+            ];
+        }
+
+        return null;
     }
 }
